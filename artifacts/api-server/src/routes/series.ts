@@ -9,7 +9,7 @@ import {
   UpdateSeriesParams,
   DeleteSeriesParams,
 } from "@workspace/api-zod";
-import { ZodError } from "@workspace/api-zod/node_modules/zod";
+import { ZodError } from "zod";
 
 function isValidId(id: string): boolean {
   return mongoose.isValidObjectId(id);

@@ -18,6 +18,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5.2.1",
     "mongoose": "^9.7.2",
+    "zod": "catalog:",
     "node-telegram-bot-api": "^1.1.2",
     "pino": "^9.14.0",
     "pino-http": "^10.5.0"
