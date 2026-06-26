@@ -367,14 +367,15 @@ router.put("/settings", async (req, res) => {
 router.post("/ai/generate-description", async (req, res) => {
   const { title, genre, year, existingDescription } = req.body;
 
-  const apiKey = process.env["OPENAI_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) {
-    return res.status(503).json({ error: "AI features require an OPENAI_API_KEY environment variable. Add it in the Secrets tab." });
+    return res.status(503).json({ error: "AI features require a GEMINI_API_KEY secret. Add it in the Secrets tab." });
   }
 
   try {
-    const { default: OpenAI } = await import("openai");
-    const openai = new OpenAI({ apiKey });
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `You are an expert movie critic and copywriter. Write a compelling, engaging movie description for:
 
@@ -385,13 +386,10 @@ ${existingDescription ? `Existing description (improve this): ${existingDescript
 
 Write 2-3 paragraphs that would make someone want to watch this movie. Be vivid, specific, and exciting. Do not reveal spoilers. Do not start with "In" or "This movie".`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 500,
-    });
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
 
-    return res.json({ text: response.choices[0]?.message?.content || "" });
+    return res.json({ text });
   } catch (err) {
     logger.error({ err }, "AI description generation failed");
     return res.status(500).json({ error: "AI generation failed", details: String(err) });
@@ -402,14 +400,15 @@ Write 2-3 paragraphs that would make someone want to watch this movie. Be vivid,
 router.post("/ai/generate-tags", async (req, res) => {
   const { title, description, genre, year } = req.body;
 
-  const apiKey = process.env["OPENAI_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) {
-    return res.status(503).json({ error: "AI features require an OPENAI_API_KEY environment variable. Add it in the Secrets tab." });
+    return res.status(503).json({ error: "AI features require a GEMINI_API_KEY secret. Add it in the Secrets tab." });
   }
 
   try {
-    const { default: OpenAI } = await import("openai");
-    const openai = new OpenAI({ apiKey });
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `Generate tags and keywords for this movie for a streaming platform:
 
@@ -418,20 +417,13 @@ Description: ${description}
 Genre: ${Array.isArray(genre) ? genre.join(", ") : genre}
 Year: ${year}
 
-Return a JSON object with:
-- "tags": array of 8-12 short descriptive tags (mood, themes, style, audience)
-- "keywords": array of 10-15 search keywords
+Return ONLY a valid JSON object with no markdown formatting:
+{"tags": ["tag1","tag2",...8-12 short descriptive tags], "keywords": ["kw1","kw2",...10-15 search keywords]}`;
 
-Return only valid JSON, no markdown.`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 400,
-      response_format: { type: "json_object" },
-    });
-
-    const content = response.choices[0]?.message?.content || '{"tags":[],"keywords":[]}';
+    const result = await model.generateContent(prompt);
+    let content = result.response.text().trim();
+    // Strip markdown code fences if present
+    content = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
     const parsed = JSON.parse(content);
     return res.json({ tags: parsed.tags || [], keywords: parsed.keywords || [] });
   } catch (err) {
@@ -477,14 +469,15 @@ router.get("/ai/analytics", async (_req, res) => {
     const topGenre = genreStats[0]?._id || "Action";
     const totalRevenue = topMovies.reduce((s: number, m: any) => s + m.totalRevenue, 0);
 
-    const apiKey = process.env["OPENAI_API_KEY"];
+    const apiKey = process.env["GEMINI_API_KEY"];
     let insight = `${topGenre} is your most popular genre by sales. Focus on acquiring more ${topGenre} titles.`;
     let revenueInsight = `Total confirmed revenue: KES ${totalRevenue.toLocaleString()}. Your top title drives the most conversions.`;
 
     if (apiKey) {
       try {
-        const { default: OpenAI } = await import("openai");
-        const openai = new OpenAI({ apiKey });
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `You are a streaming platform analytics AI. Given this data:
 Genre breakdown: ${JSON.stringify(genreStats.slice(0, 5))}
@@ -494,15 +487,12 @@ Provide TWO very short (1 sentence each) business insights:
 1. "insight": about popular genres and content strategy
 2. "revenueInsight": about revenue performance
 
-Return only JSON: {"insight": "...", "revenueInsight": "..."}`;
+Return ONLY valid JSON with no markdown: {"insight": "...", "revenueInsight": "..."}`;
 
-        const r = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 200,
-          response_format: { type: "json_object" },
-        });
-        const parsed = JSON.parse(r.choices[0]?.message?.content || "{}");
+        const result = await model.generateContent(prompt);
+        let content = result.response.text().trim();
+        content = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+        const parsed = JSON.parse(content);
         if (parsed.insight) insight = parsed.insight;
         if (parsed.revenueInsight) revenueInsight = parsed.revenueInsight;
       } catch {
@@ -567,21 +557,17 @@ router.get("/ai/recommendations", async (_req, res) => {
 
     let reasoning = "Recommendations are based on sales performance, revenue, and content recency. Featuring these titles should maximize engagement.";
 
-    const apiKey = process.env["OPENAI_API_KEY"];
+    const apiKey = process.env["GEMINI_API_KEY"];
     if (apiKey && top5.length > 0) {
       try {
-        const { default: OpenAI } = await import("openai");
-        const openai = new OpenAI({ apiKey });
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        const r = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [{
-            role: "user",
-            content: `You are a streaming platform curator. These are top-scoring movies for featuring on the homepage based on sales and recency: ${top5.map(m => `"${m.title}" (${m.sales} sales)`).join(", ")}. Write ONE sentence explaining why these movies are great homepage candidates. Be specific and confident.`,
-          }],
-          max_tokens: 100,
-        });
-        reasoning = r.choices[0]?.message?.content || reasoning;
+        const result = await model.generateContent(
+          `You are a streaming platform curator. These are top-scoring movies for featuring on the homepage based on sales and recency: ${top5.map(m => `"${m.title}" (${m.sales} sales)`).join(", ")}. Write ONE sentence explaining why these movies are great homepage candidates. Be specific and confident.`
+        );
+        reasoning = result.response.text().trim() || reasoning;
       } catch {
         // Fall back to static reasoning
       }
