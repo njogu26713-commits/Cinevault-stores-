@@ -41,8 +41,6 @@ interface DetectResult {
   updatesChecked: number;
 }
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
 export function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -103,7 +101,7 @@ export function Settings() {
     setDetectResult(null);
     setDetectError(null);
     try {
-      const res = await fetch(`${BASE}/api/admin/telegram/detect-channel`);
+      const res = await fetch(`/api/admin/telegram/detect-channel`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Detection failed");
       setDetectResult(data);
@@ -117,7 +115,7 @@ export function Settings() {
   const useChannel = async (channel: DetectedChannel) => {
     setSavingChannel(channel.id);
     try {
-      const res = await fetch(`${BASE}/api/admin/telegram/save-channel`, {
+      const res = await fetch(`/api/admin/telegram/save-channel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channelId: channel.id }),
