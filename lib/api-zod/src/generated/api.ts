@@ -215,6 +215,254 @@ export const DeleteMovieResponse = zod.void()
 
 
 /**
+ * @summary List all series
+ */
+export const ListSeriesQueryParams = zod.object({
+  "genre": zod.coerce.string().optional(),
+  "quality": zod.coerce.string().optional(),
+  "status": zod.coerce.string().optional(),
+  "search": zod.coerce.string().optional(),
+  "page": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListSeriesResponse = zod.object({
+  "series": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
+  "featured": zod.boolean(),
+  "totalSeasons": zod.number(),
+  "totalEpisodes": zod.number(),
+  "pricePerSeason": zod.number(),
+  "seasons": zod.array(zod.object({
+  "seasonNumber": zod.number(),
+  "episodes": zod.array(zod.object({
+  "episodeNumber": zod.number(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "telegramFileId": zod.string().nullish()
+}))
+})),
+  "createdAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "totalPages": zod.number()
+})
+
+
+/**
+ * @summary Create a series (admin)
+ */
+export const CreateSeriesBody = zod.object({
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']).optional(),
+  "featured": zod.boolean().optional(),
+  "seasons": zod.array(zod.object({
+  "seasonNumber": zod.number(),
+  "episodes": zod.array(zod.object({
+  "episodeNumber": zod.number(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "telegramFileId": zod.string().nullish()
+}))
+})).optional(),
+  "pricePerSeason": zod.number()
+})
+
+export const CreateSeriesResponse = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
+  "featured": zod.boolean(),
+  "totalSeasons": zod.number(),
+  "totalEpisodes": zod.number(),
+  "pricePerSeason": zod.number(),
+  "seasons": zod.array(zod.object({
+  "seasonNumber": zod.number(),
+  "episodes": zod.array(zod.object({
+  "episodeNumber": zod.number(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "telegramFileId": zod.string().nullish()
+}))
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Get featured series
+ */
+export const ListFeaturedSeriesResponseItem = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
+  "featured": zod.boolean(),
+  "totalSeasons": zod.number(),
+  "totalEpisodes": zod.number(),
+  "pricePerSeason": zod.number(),
+  "seasons": zod.array(zod.object({
+  "seasonNumber": zod.number(),
+  "episodes": zod.array(zod.object({
+  "episodeNumber": zod.number(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "telegramFileId": zod.string().nullish()
+}))
+})),
+  "createdAt": zod.string()
+})
+export const ListFeaturedSeriesResponse = zod.array(ListFeaturedSeriesResponseItem)
+
+
+/**
+ * @summary Get all series genres
+ */
+export const ListSeriesGenresResponseItem = zod.string()
+export const ListSeriesGenresResponse = zod.array(ListSeriesGenresResponseItem)
+
+
+/**
+ * @summary Get a single series with full season/episode data
+ */
+export const GetSeriesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetSeriesResponse = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
+  "featured": zod.boolean(),
+  "totalSeasons": zod.number(),
+  "totalEpisodes": zod.number(),
+  "pricePerSeason": zod.number(),
+  "seasons": zod.array(zod.object({
+  "seasonNumber": zod.number(),
+  "episodes": zod.array(zod.object({
+  "episodeNumber": zod.number(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "telegramFileId": zod.string().nullish()
+}))
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a series (admin)
+ */
+export const UpdateSeriesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateSeriesBody = zod.object({
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']).optional(),
+  "featured": zod.boolean().optional(),
+  "seasons": zod.array(zod.object({
+  "seasonNumber": zod.number(),
+  "episodes": zod.array(zod.object({
+  "episodeNumber": zod.number(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "telegramFileId": zod.string().nullish()
+}))
+})).optional(),
+  "pricePerSeason": zod.number()
+})
+
+export const UpdateSeriesResponse = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
+  "featured": zod.boolean(),
+  "totalSeasons": zod.number(),
+  "totalEpisodes": zod.number(),
+  "pricePerSeason": zod.number(),
+  "seasons": zod.array(zod.object({
+  "seasonNumber": zod.number(),
+  "episodes": zod.array(zod.object({
+  "episodeNumber": zod.number(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "telegramFileId": zod.string().nullish()
+}))
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a series (admin)
+ */
+export const DeleteSeriesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteSeriesResponse = zod.void()
+
+
+/**
  * @summary Create an order and initiate M-Pesa payment
  */
 export const CreateOrderBody = zod.object({

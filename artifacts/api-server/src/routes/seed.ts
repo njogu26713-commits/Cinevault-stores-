@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { Movie } from "../models/Movie";
+import { Series } from "../models/Series";
 
 const router = Router();
 
@@ -210,16 +211,196 @@ const SEED_MOVIES = [
   },
 ];
 
-// POST /seed — seed sample movies (development only)
+const makeEpisodes = (count: number, durationMin = 50) =>
+  Array.from({ length: count }, (_, i) => ({
+    episodeNumber: i + 1,
+    title: `Episode ${i + 1}`,
+    duration: `${durationMin}m`,
+    telegramFileId: null,
+  }));
+
+const SEED_SERIES = [
+  {
+    title: "Breaking Bad",
+    description:
+      "A high school chemistry teacher diagnosed with inoperable lung cancer turns to manufacturing and selling methamphetamine in order to secure his family's future.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg",
+    youtubeTrailerId: "HhesaQXLuRY",
+    genre: ["Crime", "Drama", "Thriller"],
+    quality: "4K" as const,
+    rating: 9.5,
+    year: 2008,
+    status: "Completed" as const,
+    featured: true,
+    pricePerSeason: 400,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(7, 48) },
+      { seasonNumber: 2, episodes: makeEpisodes(13, 47) },
+      { seasonNumber: 3, episodes: makeEpisodes(13, 48) },
+      { seasonNumber: 4, episodes: makeEpisodes(13, 49) },
+      { seasonNumber: 5, episodes: makeEpisodes(16, 55) },
+    ],
+  },
+  {
+    title: "Stranger Things",
+    description:
+      "When a young boy disappears, his mother, a police chief and his friends must confront terrifying supernatural forces in order to get him back.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/56v2KjBlU4XaOv9rVYEQypROD7P.jpg",
+    youtubeTrailerId: "b9EkMc79ZSU",
+    genre: ["Drama", "Fantasy", "Horror"],
+    quality: "4K" as const,
+    rating: 8.7,
+    year: 2016,
+    status: "Completed" as const,
+    featured: true,
+    pricePerSeason: 350,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(8, 47) },
+      { seasonNumber: 2, episodes: makeEpisodes(9, 55) },
+      { seasonNumber: 3, episodes: makeEpisodes(8, 51) },
+      { seasonNumber: 4, episodes: makeEpisodes(9, 75) },
+    ],
+  },
+  {
+    title: "Money Heist",
+    description:
+      "An unusual group of robbers attempt to carry out the most perfect robbery in Spanish history — stealing 2.4 billion euros from the Royal Mint of Spain.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/reEMJA1uzscCbkpeRJeTT2bjqUp.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/piuCBRQiKAl6JcEzWuTOgiqRpgP.jpg",
+    youtubeTrailerId: "N5k7B02PqXY",
+    genre: ["Action", "Crime", "Drama"],
+    quality: "1080p" as const,
+    rating: 8.2,
+    year: 2017,
+    status: "Completed" as const,
+    featured: true,
+    pricePerSeason: 300,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(13, 45) },
+      { seasonNumber: 2, episodes: makeEpisodes(9, 48) },
+      { seasonNumber: 3, episodes: makeEpisodes(8, 45) },
+      { seasonNumber: 4, episodes: makeEpisodes(8, 47) },
+      { seasonNumber: 5, episodes: makeEpisodes(10, 50) },
+    ],
+  },
+  {
+    title: "The Witcher",
+    description:
+      "Geralt of Rivia, a solitary monster hunter, struggles to find his place in a world where people often prove more wicked than beasts.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/7vjaCdMw15FEbXyLQTVa04URsPm.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/cAs9TO7hRVLd21Ki6bYKm1oBVLV.jpg",
+    youtubeTrailerId: "ndl7pRROPAY",
+    genre: ["Action", "Adventure", "Fantasy"],
+    quality: "4K" as const,
+    rating: 8.0,
+    year: 2019,
+    status: "Completed" as const,
+    featured: false,
+    pricePerSeason: 350,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(8, 60) },
+      { seasonNumber: 2, episodes: makeEpisodes(8, 60) },
+      { seasonNumber: 3, episodes: makeEpisodes(8, 60) },
+    ],
+  },
+  {
+    title: "Squid Game",
+    description:
+      "Hundreds of cash-strapped players accept a strange invitation to compete in children's games. Inside, a tempting prize awaits — with deadly high stakes.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/dDlEmu3EZ0Pgg93K2SVNLCjCSvE.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/qw3J9cNeLioOLoR68WX7z79aCdK.jpg",
+    youtubeTrailerId: "oqxAJKy0ii4",
+    genre: ["Action", "Drama", "Thriller"],
+    quality: "4K" as const,
+    rating: 8.0,
+    year: 2021,
+    status: "Ongoing" as const,
+    featured: true,
+    pricePerSeason: 300,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(9, 55) },
+      { seasonNumber: 2, episodes: makeEpisodes(7, 55) },
+    ],
+  },
+  {
+    title: "The Last of Us",
+    description:
+      "After a global catastrophe, a hardened survivor and a teenage girl must traverse a dangerous post-apocalyptic America, where a fungal infection has destroyed civilization.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/uDgy6hyPd82kOHh6I95iBqpH0Kc.jpg",
+    youtubeTrailerId: "uLtkt8BonwM",
+    genre: ["Adventure", "Drama", "Horror"],
+    quality: "4K" as const,
+    rating: 8.8,
+    year: 2023,
+    status: "Ongoing" as const,
+    featured: false,
+    pricePerSeason: 400,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(9, 60) },
+      { seasonNumber: 2, episodes: makeEpisodes(7, 60) },
+    ],
+  },
+  {
+    title: "Wednesday",
+    description:
+      "Follows Wednesday Addams' years as a student at Nevermore Academy, where she attempts to master her emerging psychic ability, thwart a monstrous killing spree and solve the supernatural mystery.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/9PFonBhy4cQy7Jz20NpMygczOkv.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/iHSwvRVsRyxpX7FE7GbviaDvgGZ.jpg",
+    youtubeTrailerId: "Di310WS9mAY",
+    genre: ["Comedy", "Fantasy", "Horror"],
+    quality: "1080p" as const,
+    rating: 8.1,
+    year: 2022,
+    status: "Ongoing" as const,
+    featured: false,
+    pricePerSeason: 300,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(8, 45) },
+    ],
+  },
+  {
+    title: "House of the Dragon",
+    description:
+      "An internal succession war within House Targaryen at the height of its power, 200 years before the events of Game of Thrones.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/t9UsKuHJ7WMjBPrw0sETCKfDrO4.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/etj8E2o0Bud0HkONVQPjyCkIvpv.jpg",
+    youtubeTrailerId: "DotnJ7tTA34",
+    genre: ["Action", "Adventure", "Drama"],
+    quality: "4K" as const,
+    rating: 8.4,
+    year: 2022,
+    status: "Ongoing" as const,
+    featured: false,
+    pricePerSeason: 400,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(10, 60) },
+      { seasonNumber: 2, episodes: makeEpisodes(8, 60) },
+    ],
+  },
+];
+
+// POST /seed — seed sample movies and series (only if collections are empty)
 router.post("/", async (req, res) => {
   try {
-    const count = await Movie.countDocuments();
-    if (count > 0) {
-      return res.json({ message: "Database already seeded", count });
-    }
+    const [movieCount, seriesCount] = await Promise.all([
+      Movie.countDocuments(),
+      Series.countDocuments(),
+    ]);
 
-    await Movie.insertMany(SEED_MOVIES);
-    return res.json({ message: "Seeded successfully", count: SEED_MOVIES.length });
+    const ops: Promise<any>[] = [];
+    if (movieCount === 0) ops.push(Movie.insertMany(SEED_MOVIES));
+    if (seriesCount === 0) ops.push(Series.insertMany(SEED_SERIES));
+
+    await Promise.all(ops);
+
+    return res.json({
+      message: movieCount === 0 || seriesCount === 0 ? "Seeded successfully" : "Database already seeded",
+      movies: movieCount === 0 ? SEED_MOVIES.length : movieCount,
+      series: seriesCount === 0 ? SEED_SERIES.length : seriesCount,
+    });
   } catch (err) {
     req.log.error({ err }, "Seed failed");
     return res.status(500).json({ error: "Seed failed" });

@@ -1,8 +1,21 @@
 import { Link, useLocation } from "wouter";
-import { Film, History } from "lucide-react";
+import { Film, History, Tv } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+
+  const navLink = (href: string, label: string, icon?: React.ReactNode) => {
+    const active = location === href || (href !== "/" && location.startsWith(href));
+    return (
+      <Link
+        href={href}
+        className={`text-sm flex items-center gap-1.5 font-medium transition-colors hover:text-primary ${active ? "text-primary" : "text-muted-foreground"}`}
+      >
+        {icon}
+        {label}
+      </Link>
+    );
+  };
 
   return (
     <div className="min-h-[100dvh] flex flex-col">
@@ -18,19 +31,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
 
           <nav className="flex items-center gap-6">
-            <Link
-              href="/"
-              className={`text-sm font-medium transition-colors hover:text-primary ${location === '/' ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-              Browse
-            </Link>
-            <Link
-              href="/purchases"
-              className={`text-sm flex items-center gap-1.5 font-medium transition-colors hover:text-primary ${location === '/purchases' ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-              <History size={16} />
-              Purchases
-            </Link>
+            {navLink("/", "Movies")}
+            {navLink("/series", "Series", <Tv size={15} />)}
+            {navLink("/purchases", "Purchases", <History size={15} />)}
           </nav>
         </div>
       </header>

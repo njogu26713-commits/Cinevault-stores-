@@ -22,6 +22,7 @@ import type {
 import type {
   HealthStatus,
   ListMoviesParams,
+  ListSeriesParams,
   Movie,
   MovieInput,
   MovieListResponse,
@@ -29,7 +30,10 @@ import type {
   MpesaCallbackInput,
   Order,
   OrderInput,
-  PaymentStatus
+  PaymentStatus,
+  Series,
+  SeriesInput,
+  SeriesListResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -737,6 +741,532 @@ export const useDeleteMovie = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteMovieMutationOptions(options));
+    }
+
+export const getListSeriesUrl = (params?: ListSeriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/series?${stringifiedParams}` : `/api/series`
+}
+
+/**
+ * @summary List all series
+ */
+export const listSeries = async (params?: ListSeriesParams, options?: RequestInit): Promise<SeriesListResponse> => {
+
+  return customFetch<SeriesListResponse>(getListSeriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSeriesQueryKey = (params?: ListSeriesParams,) => {
+    return [
+    `/api/series`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSeriesQueryOptions = <TData = Awaited<ReturnType<typeof listSeries>>, TError = ErrorType<unknown>>(params?: ListSeriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSeriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSeries>>> = ({ signal }) => listSeries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSeries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof listSeries>>>
+export type ListSeriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all series
+ */
+
+export function useListSeries<TData = Awaited<ReturnType<typeof listSeries>>, TError = ErrorType<unknown>>(
+ params?: ListSeriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSeriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSeriesUrl = () => {
+
+
+
+
+  return `/api/series`
+}
+
+/**
+ * @summary Create a series (admin)
+ */
+export const createSeries = async (seriesInput: SeriesInput, options?: RequestInit): Promise<Series> => {
+
+  return customFetch<Series>(getCreateSeriesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(seriesInput)
+  }
+);}
+
+
+
+
+export const getCreateSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,{data: BodyType<SeriesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,{data: BodyType<SeriesInput>}, TContext> => {
+
+const mutationKey = ['createSeries'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSeries>>, {data: BodyType<SeriesInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSeries(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof createSeries>>>
+    export type CreateSeriesMutationBody = BodyType<SeriesInput>
+    export type CreateSeriesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a series (admin)
+ */
+export const useCreateSeries = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,{data: BodyType<SeriesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSeries>>,
+        TError,
+        {data: BodyType<SeriesInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSeriesMutationOptions(options));
+    }
+
+export const getListFeaturedSeriesUrl = () => {
+
+
+
+
+  return `/api/series/featured`
+}
+
+/**
+ * @summary Get featured series
+ */
+export const listFeaturedSeries = async ( options?: RequestInit): Promise<Series[]> => {
+
+  return customFetch<Series[]>(getListFeaturedSeriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFeaturedSeriesQueryKey = () => {
+    return [
+    `/api/series/featured`
+    ] as const;
+    }
+
+
+export const getListFeaturedSeriesQueryOptions = <TData = Awaited<ReturnType<typeof listFeaturedSeries>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFeaturedSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFeaturedSeriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFeaturedSeries>>> = ({ signal }) => listFeaturedSeries({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFeaturedSeries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFeaturedSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof listFeaturedSeries>>>
+export type ListFeaturedSeriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get featured series
+ */
+
+export function useListFeaturedSeries<TData = Awaited<ReturnType<typeof listFeaturedSeries>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFeaturedSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFeaturedSeriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListSeriesGenresUrl = () => {
+
+
+
+
+  return `/api/series/genres`
+}
+
+/**
+ * @summary Get all series genres
+ */
+export const listSeriesGenres = async ( options?: RequestInit): Promise<string[]> => {
+
+  return customFetch<string[]>(getListSeriesGenresUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSeriesGenresQueryKey = () => {
+    return [
+    `/api/series/genres`
+    ] as const;
+    }
+
+
+export const getListSeriesGenresQueryOptions = <TData = Awaited<ReturnType<typeof listSeriesGenres>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSeriesGenres>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSeriesGenresQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSeriesGenres>>> = ({ signal }) => listSeriesGenres({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSeriesGenres>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSeriesGenresQueryResult = NonNullable<Awaited<ReturnType<typeof listSeriesGenres>>>
+export type ListSeriesGenresQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get all series genres
+ */
+
+export function useListSeriesGenres<TData = Awaited<ReturnType<typeof listSeriesGenres>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSeriesGenres>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSeriesGenresQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSeriesUrl = (id: string,) => {
+
+
+
+
+  return `/api/series/${id}`
+}
+
+/**
+ * @summary Get a single series with full season/episode data
+ */
+export const getSeries = async (id: string, options?: RequestInit): Promise<Series> => {
+
+  return customFetch<Series>(getGetSeriesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSeriesQueryKey = (id: string,) => {
+    return [
+    `/api/series/${id}`
+    ] as const;
+    }
+
+
+export const getGetSeriesQueryOptions = <TData = Awaited<ReturnType<typeof getSeries>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSeriesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSeries>>> = ({ signal }) => getSeries(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSeries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof getSeries>>>
+export type GetSeriesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a single series with full season/episode data
+ */
+
+export function useGetSeries<TData = Awaited<ReturnType<typeof getSeries>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSeriesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSeriesUrl = (id: string,) => {
+
+
+
+
+  return `/api/series/${id}`
+}
+
+/**
+ * @summary Update a series (admin)
+ */
+export const updateSeries = async (id: string,
+    seriesInput: SeriesInput, options?: RequestInit): Promise<Series> => {
+
+  return customFetch<Series>(getUpdateSeriesUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(seriesInput)
+  }
+);}
+
+
+
+
+export const getUpdateSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,{id: string;data: BodyType<SeriesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,{id: string;data: BodyType<SeriesInput>}, TContext> => {
+
+const mutationKey = ['updateSeries'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSeries>>, {id: string;data: BodyType<SeriesInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSeries(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof updateSeries>>>
+    export type UpdateSeriesMutationBody = BodyType<SeriesInput>
+    export type UpdateSeriesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a series (admin)
+ */
+export const useUpdateSeries = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,{id: string;data: BodyType<SeriesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSeries>>,
+        TError,
+        {id: string;data: BodyType<SeriesInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateSeriesMutationOptions(options));
+    }
+
+export const getDeleteSeriesUrl = (id: string,) => {
+
+
+
+
+  return `/api/series/${id}`
+}
+
+/**
+ * @summary Delete a series (admin)
+ */
+export const deleteSeries = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSeriesUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteSeries'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSeries>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSeries(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSeries>>>
+
+    export type DeleteSeriesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a series (admin)
+ */
+export const useDeleteSeries = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSeries>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteSeriesMutationOptions(options));
     }
 
 export const getCreateOrderUrl = () => {

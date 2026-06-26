@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './episode';
 export * from './healthStatus';
 export * from './listMoviesParams';
+export * from './listSeriesParams';
 export * from './movie';
 export * from './movieInput';
 export * from './movieInputQuality';
@@ -23,3 +25,11 @@ export * from './orderInput';
 export * from './orderPaymentStatus';
 export * from './orderStatus';
 export * from './paymentStatus';
+export * from './season';
+export * from './series';
+export * from './seriesInput';
+export * from './seriesInputQuality';
+export * from './seriesInputStatus';
+export * from './seriesListResponse';
+export * from './seriesQuality';
+export * from './seriesStatus';

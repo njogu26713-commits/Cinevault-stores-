@@ -88,6 +88,104 @@ export interface MovieStats {
   byQuality: MovieStatsByQuality;
 }
 
+export interface Episode {
+  episodeNumber: number;
+  title: string;
+  duration: string;
+  /** @nullable */
+  telegramFileId?: string | null;
+}
+
+export interface Season {
+  seasonNumber: number;
+  episodes: Episode[];
+}
+
+export type SeriesQuality = typeof SeriesQuality[keyof typeof SeriesQuality];
+
+
+export const SeriesQuality = {
+  '720p': '720p',
+  '1080p': '1080p',
+  '4K': '4K',
+} as const;
+
+export type SeriesStatus = typeof SeriesStatus[keyof typeof SeriesStatus];
+
+
+export const SeriesStatus = {
+  Ongoing: 'Ongoing',
+  Completed: 'Completed',
+  Cancelled: 'Cancelled',
+} as const;
+
+export interface Series {
+  id: string;
+  title: string;
+  description: string;
+  posterUrl: string;
+  /** @nullable */
+  bannerUrl?: string | null;
+  /** @nullable */
+  youtubeTrailerId?: string | null;
+  genre: string[];
+  quality: SeriesQuality;
+  /** @nullable */
+  rating?: number | null;
+  year: number;
+  status: SeriesStatus;
+  featured: boolean;
+  totalSeasons: number;
+  totalEpisodes: number;
+  pricePerSeason: number;
+  seasons: Season[];
+  createdAt: string;
+}
+
+export type SeriesInputQuality = typeof SeriesInputQuality[keyof typeof SeriesInputQuality];
+
+
+export const SeriesInputQuality = {
+  '720p': '720p',
+  '1080p': '1080p',
+  '4K': '4K',
+} as const;
+
+export type SeriesInputStatus = typeof SeriesInputStatus[keyof typeof SeriesInputStatus];
+
+
+export const SeriesInputStatus = {
+  Ongoing: 'Ongoing',
+  Completed: 'Completed',
+  Cancelled: 'Cancelled',
+} as const;
+
+export interface SeriesInput {
+  title: string;
+  description: string;
+  posterUrl: string;
+  /** @nullable */
+  bannerUrl?: string | null;
+  /** @nullable */
+  youtubeTrailerId?: string | null;
+  genre: string[];
+  quality: SeriesInputQuality;
+  /** @nullable */
+  rating?: number | null;
+  year: number;
+  status?: SeriesInputStatus;
+  featured?: boolean;
+  seasons?: Season[];
+  pricePerSeason: number;
+}
+
+export interface SeriesListResponse {
+  series: Series[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
 
@@ -157,6 +255,15 @@ export interface PaymentStatus {
 export type ListMoviesParams = {
 genre?: string;
 quality?: string;
+search?: string;
+page?: number;
+limit?: number;
+};
+
+export type ListSeriesParams = {
+genre?: string;
+quality?: string;
+status?: string;
 search?: string;
 page?: number;
 limit?: number;

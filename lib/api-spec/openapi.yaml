@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: movies
     description: Movie catalog
+  - name: series
+    description: TV series catalog
   - name: orders
     description: Orders and purchases
   - name: payments
@@ -174,6 +176,148 @@ paths:
       operationId: deleteMovie
       tags: [admin]
       summary: Delete a movie (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /series:
+    get:
+      operationId: listSeries
+      tags: [series]
+      summary: List all series
+      parameters:
+        - name: genre
+          in: query
+          schema:
+            type: string
+        - name: quality
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Series list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeriesListResponse"
+    post:
+      operationId: createSeries
+      tags: [admin]
+      summary: Create a series (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeriesInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Series"
+
+  /series/featured:
+    get:
+      operationId: listFeaturedSeries
+      tags: [series]
+      summary: Get featured series
+      responses:
+        "200":
+          description: Featured series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Series"
+
+  /series/genres:
+    get:
+      operationId: listSeriesGenres
+      tags: [series]
+      summary: Get all series genres
+      responses:
+        "200":
+          description: Genre list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /series/{id}:
+    get:
+      operationId: getSeries
+      tags: [series]
+      summary: Get a single series with full season/episode data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Series
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Series"
+        "404":
+          description: Not found
+    put:
+      operationId: updateSeries
+      tags: [admin]
+      summary: Update a series (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeriesInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Series"
+    delete:
+      operationId: deleteSeries
+      tags: [admin]
+      summary: Delete a series (admin)
       parameters:
         - name: id
           in: path
@@ -420,6 +564,157 @@ components:
         - total
         - byGenre
         - byQuality
+
+    Episode:
+      type: object
+      properties:
+        episodeNumber:
+          type: integer
+        title:
+          type: string
+        duration:
+          type: string
+        telegramFileId:
+          type: ["string", "null"]
+      required:
+        - episodeNumber
+        - title
+        - duration
+
+    Season:
+      type: object
+      properties:
+        seasonNumber:
+          type: integer
+        episodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Episode"
+      required:
+        - seasonNumber
+        - episodes
+
+    Series:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        posterUrl:
+          type: string
+        bannerUrl:
+          type: ["string", "null"]
+        youtubeTrailerId:
+          type: ["string", "null"]
+        genre:
+          type: array
+          items:
+            type: string
+        quality:
+          type: string
+          enum: [720p, 1080p, 4K]
+        rating:
+          type: ["number", "null"]
+        year:
+          type: integer
+        status:
+          type: string
+          enum: [Ongoing, Completed, Cancelled]
+        featured:
+          type: boolean
+        totalSeasons:
+          type: integer
+        totalEpisodes:
+          type: integer
+        pricePerSeason:
+          type: number
+        seasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/Season"
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - description
+        - posterUrl
+        - genre
+        - quality
+        - year
+        - status
+        - featured
+        - totalSeasons
+        - totalEpisodes
+        - pricePerSeason
+        - seasons
+        - createdAt
+
+    SeriesInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        posterUrl:
+          type: string
+        bannerUrl:
+          type: ["string", "null"]
+        youtubeTrailerId:
+          type: ["string", "null"]
+        genre:
+          type: array
+          items:
+            type: string
+        quality:
+          type: string
+          enum: [720p, 1080p, 4K]
+        rating:
+          type: ["number", "null"]
+        year:
+          type: integer
+        status:
+          type: string
+          enum: [Ongoing, Completed, Cancelled]
+        featured:
+          type: boolean
+        seasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/Season"
+        pricePerSeason:
+          type: number
+      required:
+        - title
+        - description
+        - posterUrl
+        - genre
+        - quality
+        - year
+        - pricePerSeason
+
+    SeriesListResponse:
+      type: object
+      properties:
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/Series"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - series
+        - total
+        - page
+        - totalPages
 
     Order:
       type: object
