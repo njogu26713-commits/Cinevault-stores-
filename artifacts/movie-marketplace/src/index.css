@@ -63,24 +63,24 @@
   
   --border: 220 50% 12%;
   --input: 220 50% 15%;
-  --ring: 350 89% 50%;
+  --ring: 221 72% 45%;
   
-  /* Crimson */
-  --primary: 350 89% 50%;
+  /* Navy Blue */
+  --primary: 221 72% 30%;
   --primary-foreground: 0 0% 100%;
-  --primary-border: hsl(350 89% 40%);
+  --primary-border: hsl(221 72% 22%);
   
-  --secondary: 220 50% 10%;
-  --secondary-foreground: 210 40% 98%;
-  --secondary-border: hsl(220 50% 15%);
+  --secondary: 0 0% 100%;
+  --secondary-foreground: 221 72% 30%;
+  --secondary-border: hsl(221 72% 80%);
   
   --muted: 220 50% 10%;
   --muted-foreground: 215 20% 65%;
   --muted-border: hsl(220 50% 15%);
   
-  --accent: 350 89% 50%;
+  --accent: 221 72% 30%;
   --accent-foreground: 0 0% 100%;
-  --accent-border: hsl(350 89% 40%);
+  --accent-border: hsl(221 72% 22%);
   
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
