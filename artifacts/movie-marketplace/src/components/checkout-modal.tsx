@@ -21,14 +21,14 @@ const checkoutSchema = z.object({
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
 
-export function CheckoutModal({ 
-  movie, 
-  isOpen, 
-  onClose 
-}: { 
-  movie: Movie; 
-  isOpen: boolean; 
-  onClose: () => void 
+export function CheckoutModal({
+  movie,
+  isOpen,
+  onClose
+}: {
+  movie: Movie;
+  isOpen: boolean;
+  onClose: () => void
 }) {
   const [, setLocation] = useLocation();
   const createOrder = useCreateOrder();
@@ -66,41 +66,41 @@ export function CheckoutModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xl"
+            className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm"
             onClick={onClose}
           />
-          
+
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-md bg-card border border-white/10 rounded-2xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col"
+              className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col"
             >
               <div className="p-6 pb-0 flex justify-between items-start">
                 <div>
-                  <h2 className="text-xl font-bold text-white">Complete Purchase</h2>
-                  <p className="text-sm text-white/50 mt-1">Instant delivery to your Telegram</p>
+                  <h2 className="text-xl font-bold text-foreground">Complete Purchase</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Instant delivery to your Telegram</p>
                 </div>
-                <button 
+                <button
                   onClick={onClose}
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-white/70 transition-colors"
+                  className="p-2 bg-muted hover:bg-muted/70 rounded-full text-muted-foreground transition-colors"
                 >
                   <X size={16} />
                 </button>
               </div>
 
-              <div className="p-6 pt-4 flex gap-4 border-b border-white/5 bg-background/30 mt-4">
-                <img 
-                  src={movie.posterUrl} 
-                  alt={movie.title} 
+              <div className="p-6 pt-4 flex gap-4 border-b border-border bg-muted/40 mt-4">
+                <img
+                  src={movie.posterUrl}
+                  alt={movie.title}
                   className="w-16 h-24 object-cover rounded shadow-lg"
                 />
                 <div className="flex flex-col justify-center">
-                  <h3 className="font-bold text-white line-clamp-1">{movie.title}</h3>
+                  <h3 className="font-bold text-foreground line-clamp-1">{movie.title}</h3>
                   <div className="flex gap-2 items-center mt-2">
                     <QualityBadge quality={movie.quality} />
-                    <span className="text-xs text-white/50">{movie.fileSize}</span>
+                    <span className="text-xs text-muted-foreground">{movie.fileSize}</span>
                   </div>
                   <p className="text-xl font-black text-primary mt-2">{formatKes(movie.price)}</p>
                 </div>
@@ -114,27 +114,27 @@ export function CheckoutModal({
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-white/80 flex items-center gap-2">
+                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
                     <Send size={14} className="text-[#0088cc]" />
                     Telegram Username
                   </label>
                   <input
                     {...register("telegramUsername")}
-                    className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    className="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                     placeholder="@username"
                   />
                   {errors.telegramUsername && <p className="text-xs text-destructive">{errors.telegramUsername.message}</p>}
-                  <p className="text-[10px] text-white/40">The movie file will be sent directly to this Telegram account.</p>
+                  <p className="text-[10px] text-muted-foreground">The movie file will be sent directly to this Telegram account.</p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-white/80 flex items-center gap-2">
+                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
                     <Smartphone size={14} className="text-[#52b520]" />
                     M-Pesa Phone Number
                   </label>
                   <input
                     {...register("phone")}
-                    className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-[#52b520]/50 transition-all"
+                    className="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#52b520]/40 transition-all"
                     placeholder="07XX XXX XXX"
                   />
                   {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
@@ -143,7 +143,7 @@ export function CheckoutModal({
                 <button
                   type="submit"
                   disabled={createOrder.isPending}
-                  className="w-full bg-[#52b520] hover:bg-[#48a01c] text-white font-bold py-3.5 rounded-xl shadow-[0_4px_14px_0_rgba(82,181,32,0.39)] transition-all active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none flex items-center justify-center gap-2 mt-2"
+                  className="w-full bg-[#52b520] hover:bg-[#48a01c] text-white font-bold py-3.5 rounded-xl shadow-[0_4px_14px_0_rgba(82,181,32,0.25)] transition-all active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none flex items-center justify-center gap-2 mt-2"
                 >
                   {createOrder.isPending ? (
                     <>

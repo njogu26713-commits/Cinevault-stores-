@@ -6,12 +6,11 @@ import { motion } from "framer-motion";
 
 export default function OrderStatus() {
   const { id } = useParams<{ id: string }>();
-  
+
   const { data: order, isLoading } = useGetOrder(id!, {
-    query: { 
-      enabled: !!id, 
+    query: {
+      enabled: !!id,
       refetchInterval: (data) => {
-        // Stop polling if delivered or failed
         if (data?.status === 'delivered' || data?.status === 'failed') return false;
         return 3000;
       },
@@ -24,7 +23,7 @@ export default function OrderStatus() {
       <Layout>
         <div className="flex-1 flex flex-col items-center justify-center">
           <Loader2 className="animate-spin text-primary mb-4" size={40} />
-          <p className="text-white/50">Locating your order...</p>
+          <p className="text-muted-foreground">Locating your order...</p>
         </div>
       </Layout>
     );
@@ -39,9 +38,8 @@ export default function OrderStatus() {
   ];
 
   let currentStageIndex = stages.findIndex(s => s.key === order.status);
-  // Map intermediate M-Pesa pending statuses to the UI logic if needed
   if (currentStageIndex === -1 && order.status !== 'failed') {
-    currentStageIndex = 0; // fallback
+    currentStageIndex = 0;
   }
 
   const isFailed = order.status === 'failed';
@@ -50,23 +48,23 @@ export default function OrderStatus() {
     <Layout>
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-lg">
-          
-          <div className="bg-card border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
-            
-            {/* Header / Movie Summary */}
-            <div className="relative h-48 overflow-hidden bg-background">
-              <img 
-                src={order.moviePosterUrl} 
-                className="absolute inset-0 w-full h-full object-cover opacity-30 blur-sm scale-110" 
-                alt="" 
+
+          <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-lg">
+
+            {/* Header / Movie Summary — dark overlay on image, keep white text */}
+            <div className="relative h-48 overflow-hidden bg-slate-900">
+              <img
+                src={order.moviePosterUrl}
+                className="absolute inset-0 w-full h-full object-cover opacity-40 blur-sm scale-110"
+                alt=""
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-card via-card/80 to-transparent" />
-              
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/60 to-transparent" />
+
               <div className="absolute inset-0 flex items-center p-6 gap-6">
-                <img 
-                  src={order.moviePosterUrl} 
-                  className="w-24 h-36 object-cover rounded-xl shadow-2xl border border-white/10" 
-                  alt={order.movieTitle} 
+                <img
+                  src={order.moviePosterUrl}
+                  className="w-24 h-36 object-cover rounded-xl shadow-2xl border border-white/20"
+                  alt={order.movieTitle}
                 />
                 <div className="flex-1">
                   <h1 className="text-2xl font-black text-white leading-tight mb-2 line-clamp-2">
@@ -81,9 +79,9 @@ export default function OrderStatus() {
 
             {/* Status Section */}
             <div className="p-8">
-              
+
               {isFailed ? (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-center py-6"
@@ -91,34 +89,34 @@ export default function OrderStatus() {
                   <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-6">
                     <AlertCircle className="text-destructive" size={40} />
                   </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Order Failed</h2>
-                  <p className="text-destructive/80 mb-8 max-w-xs mx-auto">
+                  <h2 className="text-2xl font-bold text-foreground mb-2">Order Failed</h2>
+                  <p className="text-destructive mb-8 max-w-xs mx-auto">
                     {order.failureReason || "Payment was not completed successfully. Please try again."}
                   </p>
-                  <Link href={`/movie/${order.movieId}`} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-8 rounded-xl transition-colors">
+                  <Link href={`/movie/${order.movieId}`} className="bg-muted hover:bg-muted/80 text-foreground font-bold py-3 px-8 rounded-xl transition-colors">
                     Try Again
                   </Link>
                 </motion.div>
               ) : (
                 <div className="space-y-8">
                   {order.status === 'delivered' ? (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="text-center pb-8 pt-4 border-b border-white/10"
+                      className="text-center pb-8 pt-4 border-b border-border"
                     >
                       <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
                         <CheckCircle2 className="text-emerald-500" size={40} />
                       </div>
-                      <h2 className="text-3xl font-black text-white mb-2">Success!</h2>
-                      <p className="text-emerald-400">Movie delivered to your Telegram.</p>
-                      <p className="text-white/40 text-sm mt-4">Check your messages from our bot.</p>
+                      <h2 className="text-3xl font-black text-foreground mb-2">Success!</h2>
+                      <p className="text-emerald-600">Movie delivered to your Telegram.</p>
+                      <p className="text-muted-foreground text-sm mt-4">Check your messages from our bot.</p>
                     </motion.div>
                   ) : (
                     <div className="text-center pb-6">
                       <Loader2 className="animate-spin text-primary mx-auto mb-4" size={32} />
-                      <h2 className="text-xl font-bold text-white mb-1">Processing Order...</h2>
-                      <p className="text-white/50 text-sm">Please keep this page open.</p>
+                      <h2 className="text-xl font-bold text-foreground mb-1">Processing Order...</h2>
+                      <p className="text-muted-foreground text-sm">Please keep this page open.</p>
                     </div>
                   )}
 
@@ -127,32 +125,32 @@ export default function OrderStatus() {
                       const isCompleted = index <= currentStageIndex;
                       const isCurrent = index === currentStageIndex && order.status !== 'delivered';
                       const Icon = stage.icon;
-                      
+
                       return (
                         <div key={stage.key} className="flex items-center gap-4 relative">
                           {/* Connection Line */}
                           {index !== stages.length - 1 && (
                             <div className={`absolute left-[19px] top-[40px] bottom-[-24px] w-0.5 ${
-                              index < currentStageIndex ? 'bg-primary' : 'bg-white/5'
+                              index < currentStageIndex ? 'bg-primary' : 'bg-border'
                             }`} />
                           )}
-                          
+
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 z-10 transition-colors duration-500 ${
-                            isCurrent ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(229,9,20,0.5)]' :
+                            isCurrent ? 'bg-primary/10 border-primary text-primary' :
                             isCompleted ? 'bg-primary border-primary text-white' :
-                            'bg-card border-white/10 text-white/20'
+                            'bg-muted border-border text-muted-foreground'
                           }`}>
                             <Icon size={18} />
                           </div>
-                          
+
                           <div className={`flex-1 ${
-                            isCurrent ? 'text-white' :
-                            isCompleted ? 'text-white/70' :
-                            'text-white/30'
+                            isCurrent ? 'text-foreground' :
+                            isCompleted ? 'text-foreground' :
+                            'text-muted-foreground'
                           }`}>
                             <p className="font-bold">{stage.label}</p>
                             {isCurrent && (
-                              <p className="text-xs text-primary/80 animate-pulse mt-0.5">In progress...</p>
+                              <p className="text-xs text-primary animate-pulse mt-0.5">In progress...</p>
                             )}
                           </div>
                         </div>
@@ -164,7 +162,7 @@ export default function OrderStatus() {
 
             </div>
           </div>
-          
+
         </div>
       </div>
     </Layout>
