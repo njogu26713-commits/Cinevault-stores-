@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { Movie } from "../models/Movie";
 import { Order } from "../models/Order";
 import { initiateSTKPush } from "../services/mpesa";
@@ -26,6 +27,10 @@ function formatOrder(order: any) {
 router.post("/", async (req, res) => {
   try {
     const { movieId, telegramUsername, phone } = CreateOrderBody.parse(req.body);
+
+    if (!mongoose.isValidObjectId(movieId)) {
+      return res.status(400).json({ error: "Invalid movie ID" });
+    }
 
     const movie = await Movie.findById(movieId).lean();
     if (!movie) {
@@ -78,6 +83,9 @@ router.post("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = GetOrderParams.parse(req.params);
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid order ID" });
+    }
     const order = await Order.findById(id);
     if (!order) {
       return res.status(404).json({ error: "Order not found" });

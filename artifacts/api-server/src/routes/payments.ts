@@ -42,17 +42,46 @@ router.post("/mpesa/callback", async (req, res) => {
     }
 
     if (ResultCode === 0) {
-      // Payment successful
+      // Guard: skip if already past payment_confirmed — prevents duplicate delivery on callback replay
+      if (order.status === "delivered" || order.status === "delivering") {
+        req.log.info({ orderId: order._id }, "Duplicate callback ignored — already delivered");
+        return res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+      }
+
       const items = CallbackMetadata?.Item ?? [];
       const getItem = (name: string) =>
         items.find((i) => i.Name === name)?.Value as string | undefined;
 
       const receiptNumber = getItem("MpesaReceiptNumber") ?? null;
 
-      order.paymentStatus = "confirmed";
-      order.status = "payment_confirmed";
-      order.mpesaReceiptNumber = receiptNumber;
-      await order.save();
+      // Verify the amount matches to prevent tampering
+      const paidAmount = Number(getItem("Amount") ?? 0);
+      if (paidAmount > 0 && Math.abs(paidAmount - order.amount) > 1) {
+        req.log.error(
+          { orderId: order._id, expected: order.amount, received: paidAmount },
+          "Amount mismatch — rejecting callback"
+        );
+        order.status = "failed";
+        order.failureReason = "Payment amount mismatch";
+        await order.save();
+        return res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+      }
+
+      // Atomic transition: only advance if still in initiated state (idempotency)
+      const updated = await Order.findOneAndUpdate(
+        { _id: order._id, status: "payment_initiated" },
+        {
+          paymentStatus: "confirmed",
+          status: "payment_confirmed",
+          mpesaReceiptNumber: receiptNumber,
+        },
+        { new: true }
+      );
+
+      if (!updated) {
+        req.log.info({ orderId: order._id }, "Order already processed — skipping");
+        return res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+      }
 
       req.log.info({ orderId: order._id, receiptNumber }, "Payment confirmed, delivering movie");
 
@@ -63,8 +92,7 @@ router.post("/mpesa/callback", async (req, res) => {
           throw new Error("Movie has no Telegram file ID configured");
         }
 
-        order.status = "delivering";
-        await order.save();
+        await Order.findByIdAndUpdate(order._id, { status: "delivering" });
 
         await deliverMovieFromChannel({
           telegramUsername: order.telegramUsername,
@@ -73,23 +101,25 @@ router.post("/mpesa/callback", async (req, res) => {
           orderId: order._id.toString(),
         });
 
-        order.status = "delivered";
-        order.deliveredAt = new Date();
-        await order.save();
+        await Order.findByIdAndUpdate(order._id, {
+          status: "delivered",
+          deliveredAt: new Date(),
+        });
 
         req.log.info({ orderId: order._id }, "Movie delivered successfully");
       } catch (deliveryErr) {
         req.log.error({ deliveryErr, orderId: order._id }, "Movie delivery failed");
-        order.status = "failed";
-        order.failureReason = "Payment received but movie delivery failed. Contact support.";
-        await order.save();
+        await Order.findByIdAndUpdate(order._id, {
+          status: "failed",
+          failureReason: "Payment received but movie delivery failed. Contact support.",
+        });
       }
     } else {
-      // Payment failed
-      order.paymentStatus = "failed";
-      order.status = "failed";
-      order.failureReason = ResultDesc;
-      await order.save();
+      // Payment failed — only update if not already in a terminal state
+      await Order.findOneAndUpdate(
+        { _id: order._id, status: { $nin: ["delivered", "failed"] } },
+        { paymentStatus: "failed", status: "failed", failureReason: ResultDesc }
+      );
       req.log.info({ orderId: order._id, ResultCode, ResultDesc }, "Payment failed");
     }
 

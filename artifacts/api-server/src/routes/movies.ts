@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { Movie } from "../models/Movie";
 import {
   ListMoviesQueryParams,
@@ -8,6 +9,10 @@ import {
   UpdateMovieParams,
   DeleteMovieParams,
 } from "@workspace/api-zod";
+
+function isValidId(id: string): boolean {
+  return mongoose.isValidObjectId(id);
+}
 
 const router = Router();
 
@@ -107,6 +112,7 @@ router.get("/stats", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = GetMovieParams.parse(req.params);
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid movie ID" });
     const movie = await Movie.findById(id).lean();
     if (!movie) {
       return res.status(404).json({ error: "Movie not found" });
@@ -135,6 +141,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = UpdateMovieParams.parse(req.params);
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid movie ID" });
     const data = UpdateMovieBody.parse(req.body);
     const movie = await Movie.findByIdAndUpdate(id, data, { new: true }).lean();
     if (!movie) {
@@ -151,6 +158,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = DeleteMovieParams.parse(req.params);
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid movie ID" });
     await Movie.findByIdAndDelete(id);
     return res.status(204).send();
   } catch (err) {

@@ -1,0 +1,1 @@
+- [CineVault architecture](cinevault-arch.md) — MongoDB (not Postgres), M-Pesa STK push, Telegram Bot delivery; callback idempotency is critical.
