@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
-import { Film, PlayCircle, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Film, PlayCircle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useListMovies,
   useListFeaturedMovies,
@@ -14,6 +14,8 @@ import { MovieCard } from "../components/movie-card";
 
 export default function Home() {
   const [selectedGenre, setSelectedGenre] = useState<string | undefined>();
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [direction, setDirection] = useState(1); // 1 = forward, -1 = backward
 
   const { data: featuredMovies, isLoading: loadingFeatured } = useListFeaturedMovies();
   const { data: genres } = useListGenres();
@@ -24,55 +26,148 @@ export default function Home() {
     { query: { queryKey: getListMoviesQueryKey({ genre: selectedGenre }) } }
   );
 
-  const heroMovie = featuredMovies?.[0];
+  const total = featuredMovies?.length ?? 0;
+
+  const goTo = useCallback((index: number, dir: number) => {
+    setDirection(dir);
+    setHeroIndex(index);
+  }, []);
+
+  const prev = useCallback(() => {
+    if (!total) return;
+    goTo((heroIndex - 1 + total) % total, -1);
+  }, [heroIndex, total, goTo]);
+
+  const next = useCallback(() => {
+    if (!total) return;
+    goTo((heroIndex + 1) % total, 1);
+  }, [heroIndex, total, goTo]);
+
+  // Auto-advance every 6 seconds
+  useEffect(() => {
+    if (!total) return;
+    const timer = setInterval(next, 6000);
+    return () => clearInterval(timer);
+  }, [next, total]);
+
+  const heroMovie = featuredMovies?.[heroIndex];
+
+  const variants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? "100%" : "-100%",
+      opacity: 0,
+    }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir: number) => ({
+      x: dir > 0 ? "-100%" : "100%",
+      opacity: 0,
+    }),
+  };
 
   return (
     <Layout>
-      {/* Hero Section — image overlay, keep white text for contrast */}
-      <section className="relative w-full aspect-[21/9] min-h-[500px] max-h-[800px] bg-slate-900">
+      {/* Hero Slider */}
+      <section className="relative w-full aspect-[21/9] min-h-[500px] max-h-[800px] bg-slate-900 overflow-hidden">
         {loadingFeatured ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="animate-spin text-white/40" size={32} />
           </div>
         ) : heroMovie ? (
           <>
-            <div className="absolute inset-0 select-none">
-              <img
-                src={heroMovie.bannerUrl || heroMovie.posterUrl}
-                alt={heroMovie.title}
-                className="w-full h-full object-cover object-top opacity-60"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/70 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/50 to-transparent" />
-            </div>
+            {/* Sliding panels */}
+            <AnimatePresence initial={false} custom={direction}>
+              <motion.div
+                key={heroIndex}
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
+                className="absolute inset-0"
+              >
+                {/* Background image */}
+                <div className="absolute inset-0 select-none">
+                  <img
+                    src={heroMovie.bannerUrl || heroMovie.posterUrl}
+                    alt={heroMovie.title}
+                    className="w-full h-full object-cover object-top opacity-60"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/70 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/50 to-transparent" />
+                </div>
 
-            <div className="absolute inset-0 flex items-center">
-              <div className="container mx-auto px-4">
-                <motion.div
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="max-w-2xl"
+                {/* Content */}
+                <div className="absolute inset-0 flex items-center">
+                  <div className="container mx-auto px-4">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15, duration: 0.6, ease: "easeOut" }}
+                      className="max-w-2xl"
+                    >
+                      <div className="flex gap-2 mb-4">
+                        <span className="px-2 py-0.5 rounded bg-primary/30 text-white text-xs font-bold uppercase border border-primary/40">Featured</span>
+                        <span className="px-2 py-0.5 rounded bg-white/15 text-white/90 text-xs font-bold uppercase">{heroMovie.quality}</span>
+                      </div>
+                      <h1 className="text-5xl md:text-7xl font-black text-white leading-tight mb-4 drop-shadow-2xl">
+                        {heroMovie.title}
+                      </h1>
+                      <p className="text-lg text-white/75 mb-8 line-clamp-3 leading-relaxed max-w-xl">
+                        {heroMovie.description}
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <Link
+                          href={`/movie/${heroMovie.id}`}
+                          className="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/25"
+                        >
+                          <PlayCircle size={20} />
+                          View Details
+                        </Link>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Prev / Next arrows */}
+            {total > 1 && (
+              <>
+                <button
+                  onClick={prev}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+                  aria-label="Previous"
                 >
-                  <div className="flex gap-2 mb-4">
-                    <span className="px-2 py-0.5 rounded bg-primary/30 text-white text-xs font-bold uppercase border border-primary/40">Featured</span>
-                    <span className="px-2 py-0.5 rounded bg-white/15 text-white/90 text-xs font-bold uppercase">{heroMovie.quality}</span>
-                  </div>
-                  <h1 className="text-5xl md:text-7xl font-black text-white leading-tight mb-4 drop-shadow-2xl">
-                    {heroMovie.title}
-                  </h1>
-                  <p className="text-lg text-white/75 mb-8 line-clamp-3 leading-relaxed max-w-xl">
-                    {heroMovie.description}
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <Link href={`/movie/${heroMovie.id}`} className="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/25">
-                      <PlayCircle size={20} />
-                      View Details
-                    </Link>
-                  </div>
-                </motion.div>
+                  <ChevronLeft size={22} />
+                </button>
+                <button
+                  onClick={next}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+                  aria-label="Next"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              </>
+            )}
+
+            {/* Dot indicators */}
+            {total > 1 && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+                {featuredMovies!.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => goTo(i, i > heroIndex ? 1 : -1)}
+                    className={`rounded-full transition-all duration-300 ${
+                      i === heroIndex
+                        ? "w-7 h-2.5 bg-white"
+                        : "w-2.5 h-2.5 bg-white/40 hover:bg-white/70"
+                    }`}
+                    aria-label={`Slide ${i + 1}`}
+                  />
+                ))}
               </div>
-            </div>
+            )}
           </>
         ) : null}
       </section>
@@ -97,8 +192,8 @@ export default function Home() {
               onClick={() => setSelectedGenre(undefined)}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
                 !selectedGenre
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-primary'
+                  ? "bg-primary text-white border-primary"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
               }`}
             >
               All Movies
@@ -109,13 +204,13 @@ export default function Home() {
                 onClick={() => setSelectedGenre(genre)}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors border flex items-center gap-2 ${
                   selectedGenre === genre
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-primary'
+                    ? "bg-primary text-white border-primary"
+                    : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
                 }`}
               >
                 {genre}
                 {stats?.byGenre[genre] && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedGenre === genre ? 'bg-white/20' : 'bg-muted'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedGenre === genre ? "bg-white/20" : "bg-muted"}`}>
                     {stats.byGenre[genre]}
                   </span>
                 )}
