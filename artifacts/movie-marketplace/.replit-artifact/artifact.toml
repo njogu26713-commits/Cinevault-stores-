@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Movie Marketplace"
+version = "1.0.0"
+id = "artifacts/movie-marketplace"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21337
+
+[services.development]
+run = "pnpm --filter @workspace/movie-marketplace run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/movie-marketplace", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/movie-marketplace/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21337"
+BASE_PATH = "/"

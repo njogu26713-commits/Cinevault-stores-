@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Movie Marketplace API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: movies
+    description: Movie catalog
+  - name: orders
+    description: Orders and purchases
+  - name: payments
+    description: M-Pesa payment processing
+  - name: admin
+    description: Admin operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,251 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /movies:
+    get:
+      operationId: listMovies
+      tags: [movies]
+      summary: List all movies
+      parameters:
+        - name: genre
+          in: query
+          schema:
+            type: string
+        - name: quality
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Movie list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovieListResponse"
+    post:
+      operationId: createMovie
+      tags: [admin]
+      summary: Create a movie (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovieInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+
+  /movies/featured:
+    get:
+      operationId: listFeaturedMovies
+      tags: [movies]
+      summary: Get featured/hero movies
+      responses:
+        "200":
+          description: Featured movies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Movie"
+
+  /movies/genres:
+    get:
+      operationId: listGenres
+      tags: [movies]
+      summary: Get all available genres
+      responses:
+        "200":
+          description: Genre list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /movies/stats:
+    get:
+      operationId: getMovieStats
+      tags: [movies]
+      summary: Get catalog stats
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovieStats"
+
+  /movies/{id}:
+    get:
+      operationId: getMovie
+      tags: [movies]
+      summary: Get a single movie
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Movie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+        "404":
+          description: Not found
+    put:
+      operationId: updateMovie
+      tags: [admin]
+      summary: Update a movie (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovieInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+    delete:
+      operationId: deleteMovie
+      tags: [admin]
+      summary: Delete a movie (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /orders:
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create an order and initiate M-Pesa payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get order status (poll for payment/delivery)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/user/{telegramUsername}:
+    get:
+      operationId: getUserOrders
+      tags: [orders]
+      summary: Get all orders for a Telegram user
+      parameters:
+        - name: telegramUsername
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /payments/mpesa/callback:
+    post:
+      operationId: mpesaCallback
+      tags: [payments]
+      summary: M-Pesa STK Push callback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MpesaCallbackInput"
+      responses:
+        "200":
+          description: OK
+
+  /payments/mpesa/status/{checkoutRequestId}:
+    get:
+      operationId: getMpesaStatus
+      tags: [payments]
+      summary: Query M-Pesa STK push status
+      parameters:
+        - name: checkoutRequestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentStatus"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +287,220 @@ components:
       required:
         - status
 
+    Movie:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        posterUrl:
+          type: string
+        bannerUrl:
+          type: ["string", "null"]
+        youtubeTrailerId:
+          type: ["string", "null"]
+        genre:
+          type: array
+          items:
+            type: string
+        duration:
+          type: string
+        quality:
+          type: string
+          enum: [720p, 1080p, 4K]
+        fileSize:
+          type: string
+        price:
+          type: number
+        featured:
+          type: boolean
+        rating:
+          type: ["number", "null"]
+        year:
+          type: integer
+        telegramFileId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - description
+        - posterUrl
+        - genre
+        - duration
+        - quality
+        - fileSize
+        - price
+        - featured
+        - year
+        - createdAt
+
+    MovieInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        posterUrl:
+          type: string
+        bannerUrl:
+          type: ["string", "null"]
+        youtubeTrailerId:
+          type: ["string", "null"]
+        genre:
+          type: array
+          items:
+            type: string
+        duration:
+          type: string
+        quality:
+          type: string
+          enum: [720p, 1080p, 4K]
+        fileSize:
+          type: string
+        price:
+          type: number
+        featured:
+          type: boolean
+        rating:
+          type: ["number", "null"]
+        year:
+          type: integer
+        telegramFileId:
+          type: ["string", "null"]
+      required:
+        - title
+        - description
+        - posterUrl
+        - genre
+        - duration
+        - quality
+        - fileSize
+        - price
+        - year
+
+    MovieListResponse:
+      type: object
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Movie"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - movies
+        - total
+        - page
+        - totalPages
+
+    MovieStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        byGenre:
+          type: object
+          additionalProperties:
+            type: integer
+        byQuality:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+        - total
+        - byGenre
+        - byQuality
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        movieId:
+          type: string
+        movieTitle:
+          type: string
+        moviePosterUrl:
+          type: string
+        telegramUsername:
+          type: string
+        phone:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, payment_initiated, payment_confirmed, delivering, delivered, failed]
+        paymentStatus:
+          type: string
+          enum: [pending, initiated, confirmed, failed]
+        checkoutRequestId:
+          type: ["string", "null"]
+        merchantRequestId:
+          type: ["string", "null"]
+        mpesaReceiptNumber:
+          type: ["string", "null"]
+        deliveredAt:
+          type: ["string", "null"]
+        failureReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - movieId
+        - movieTitle
+        - moviePosterUrl
+        - telegramUsername
+        - phone
+        - amount
+        - status
+        - paymentStatus
+        - createdAt
+        - updatedAt
+
+    OrderInput:
+      type: object
+      properties:
+        movieId:
+          type: string
+        telegramUsername:
+          type: string
+        phone:
+          type: string
+      required:
+        - movieId
+        - telegramUsername
+        - phone
+
+    MpesaCallbackInput:
+      type: object
+      properties:
+        Body:
+          type: object
+      required:
+        - Body
+
+    PaymentStatus:
+      type: object
+      properties:
+        status:
+          type: string
+        resultCode:
+          type: ["string", "null"]
+        resultDesc:
+          type: ["string", "null"]
+      required:
+        - status
