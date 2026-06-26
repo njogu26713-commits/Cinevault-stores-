@@ -421,6 +421,200 @@ paths:
               schema:
                 $ref: "#/components/schemas/PaymentStatus"
 
+  # ── ADMIN ENDPOINTS ──────────────────────────────────────────────────────────
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Dashboard overview stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/orders:
+    get:
+      operationId: listAdminOrders
+      tags: [admin]
+      summary: List all orders (admin)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: paymentStatus
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderListResponse"
+
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: List users aggregated from orders
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserListResponse"
+
+  /admin/movies/{id}/upload-file:
+    post:
+      operationId: uploadMovieFile
+      tags: [admin]
+      summary: Upload a movie file to Telegram and save the file_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/MovieFileUpload"
+      responses:
+        "200":
+          description: Upload result with Telegram file_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramUploadResult"
+
+  /admin/settings:
+    get:
+      operationId: getAdminSettings
+      tags: [admin]
+      summary: Get admin/system settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+    put:
+      operationId: updateAdminSettings
+      tags: [admin]
+      summary: Update admin/system settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+
+  /admin/ai/generate-description:
+    post:
+      operationId: aiGenerateDescription
+      tags: [admin]
+      summary: AI-generate a movie/series description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiDescriptionRequest"
+      responses:
+        "200":
+          description: Generated description
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiTextResult"
+
+  /admin/ai/generate-tags:
+    post:
+      operationId: aiGenerateTags
+      tags: [admin]
+      summary: AI-generate tags and keywords for a movie/series
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiTagsRequest"
+      responses:
+        "200":
+          description: Generated tags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiTagsResult"
+
+  /admin/ai/analytics:
+    get:
+      operationId: getAiAnalytics
+      tags: [admin]
+      summary: AI analytics - popular genres, best sellers, revenue trends
+      responses:
+        "200":
+          description: Analytics insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiAnalytics"
+
+  /admin/ai/recommendations:
+    get:
+      operationId: getAiRecommendations
+      tags: [admin]
+      summary: AI recommendations for featuring movies/series
+      responses:
+        "200":
+          description: Featured movie recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiRecommendations"
+
 components:
   schemas:
     HealthStatus:
@@ -799,3 +993,341 @@ components:
           type: ["string", "null"]
       required:
         - status
+
+    # ── ADMIN SCHEMAS ──────────────────────────────────────────────────────────
+
+    AdminStats:
+      type: object
+      properties:
+        totalMovies:
+          type: integer
+        totalSeries:
+          type: integer
+        totalOrders:
+          type: integer
+        totalRevenue:
+          type: number
+        deliveredOrders:
+          type: integer
+        pendingOrders:
+          type: integer
+        failedOrders:
+          type: integer
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        revenueByDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/RevenueByDay"
+        topMovies:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopMovie"
+      required:
+        - totalMovies
+        - totalSeries
+        - totalOrders
+        - totalRevenue
+        - deliveredOrders
+        - pendingOrders
+        - failedOrders
+        - recentOrders
+        - revenueByDay
+        - topMovies
+
+    RevenueByDay:
+      type: object
+      properties:
+        date:
+          type: string
+        revenue:
+          type: number
+        orders:
+          type: integer
+      required:
+        - date
+        - revenue
+        - orders
+
+    TopMovie:
+      type: object
+      properties:
+        movieId:
+          type: string
+        movieTitle:
+          type: string
+        moviePosterUrl:
+          type: string
+        totalSales:
+          type: integer
+        totalRevenue:
+          type: number
+      required:
+        - movieId
+        - movieTitle
+        - moviePosterUrl
+        - totalSales
+        - totalRevenue
+
+    AdminOrderListResponse:
+      type: object
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - orders
+        - total
+        - page
+        - totalPages
+
+    AdminUser:
+      type: object
+      properties:
+        telegramUsername:
+          type: string
+        phone:
+          type: string
+        totalOrders:
+          type: integer
+        totalSpent:
+          type: number
+        lastOrderAt:
+          type: string
+        deliveredOrders:
+          type: integer
+      required:
+        - telegramUsername
+        - phone
+        - totalOrders
+        - totalSpent
+        - lastOrderAt
+        - deliveredOrders
+
+    AdminUserListResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - users
+        - total
+        - page
+        - totalPages
+
+    MovieFileUpload:
+      type: object
+      properties:
+        fileName:
+          type: string
+      required:
+        - fileName
+
+    TelegramUploadResult:
+      type: object
+      properties:
+        telegramFileId:
+          type: string
+        fileSize:
+          type: integer
+        fileName:
+          type: string
+      required:
+        - telegramFileId
+        - fileSize
+        - fileName
+
+    AdminSettings:
+      type: object
+      properties:
+        mpesaConsumerKey:
+          type: string
+        mpesaConsumerSecret:
+          type: string
+        mpesaShortcode:
+          type: string
+        mpesaPasskey:
+          type: string
+        mpesaCallbackUrl:
+          type: string
+        telegramBotToken:
+          type: string
+        telegramChannelId:
+          type: string
+        mongoUri:
+          type: string
+        adminUsername:
+          type: string
+      required:
+        - adminUsername
+
+    AdminSettingsInput:
+      type: object
+      properties:
+        mpesaConsumerKey:
+          type: string
+        mpesaConsumerSecret:
+          type: string
+        mpesaShortcode:
+          type: string
+        mpesaPasskey:
+          type: string
+        mpesaCallbackUrl:
+          type: string
+        telegramBotToken:
+          type: string
+        telegramChannelId:
+          type: string
+        mongoUri:
+          type: string
+        adminUsername:
+          type: string
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+
+    AiDescriptionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        genre:
+          type: array
+          items:
+            type: string
+        year:
+          type: integer
+        existingDescription:
+          type: ["string", "null"]
+      required:
+        - title
+        - genre
+        - year
+
+    AiTextResult:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+
+    AiTagsRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        genre:
+          type: array
+          items:
+            type: string
+        year:
+          type: integer
+      required:
+        - title
+        - description
+        - genre
+        - year
+
+    AiTagsResult:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+        keywords:
+          type: array
+          items:
+            type: string
+      required:
+        - tags
+        - keywords
+
+    AiAnalytics:
+      type: object
+      properties:
+        popularGenres:
+          type: array
+          items:
+            $ref: "#/components/schemas/GenreStats"
+        bestSellers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopMovie"
+        insight:
+          type: string
+        revenueInsight:
+          type: string
+      required:
+        - popularGenres
+        - bestSellers
+        - insight
+        - revenueInsight
+
+    GenreStats:
+      type: object
+      properties:
+        genre:
+          type: string
+        count:
+          type: integer
+        revenue:
+          type: number
+      required:
+        - genre
+        - count
+        - revenue
+
+    AiRecommendations:
+      type: object
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/MovieRecommendation"
+        reasoning:
+          type: string
+      required:
+        - recommendations
+        - reasoning
+
+    MovieRecommendation:
+      type: object
+      properties:
+        movieId:
+          type: string
+        title:
+          type: string
+        posterUrl:
+          type: string
+        reason:
+          type: string
+        score:
+          type: number
+      required:
+        - movieId
+        - title
+        - posterUrl
+        - reason
+        - score

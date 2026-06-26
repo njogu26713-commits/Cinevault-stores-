@@ -252,6 +252,142 @@ export interface PaymentStatus {
   resultDesc?: string | null;
 }
 
+export interface RevenueByDay {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+export interface TopMovie {
+  movieId: string;
+  movieTitle: string;
+  moviePosterUrl: string;
+  totalSales: number;
+  totalRevenue: number;
+}
+
+export interface AdminStats {
+  totalMovies: number;
+  totalSeries: number;
+  totalOrders: number;
+  totalRevenue: number;
+  deliveredOrders: number;
+  pendingOrders: number;
+  failedOrders: number;
+  recentOrders: Order[];
+  revenueByDay: RevenueByDay[];
+  topMovies: TopMovie[];
+}
+
+export interface AdminOrderListResponse {
+  orders: Order[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface AdminUser {
+  telegramUsername: string;
+  phone: string;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderAt: string;
+  deliveredOrders: number;
+}
+
+export interface AdminUserListResponse {
+  users: AdminUser[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface MovieFileUpload {
+  fileName: string;
+}
+
+export interface TelegramUploadResult {
+  telegramFileId: string;
+  fileSize: number;
+  fileName: string;
+}
+
+export interface AdminSettings {
+  mpesaConsumerKey?: string;
+  mpesaConsumerSecret?: string;
+  mpesaShortcode?: string;
+  mpesaPasskey?: string;
+  mpesaCallbackUrl?: string;
+  telegramBotToken?: string;
+  telegramChannelId?: string;
+  mongoUri?: string;
+  adminUsername: string;
+}
+
+export interface AdminSettingsInput {
+  mpesaConsumerKey?: string;
+  mpesaConsumerSecret?: string;
+  mpesaShortcode?: string;
+  mpesaPasskey?: string;
+  mpesaCallbackUrl?: string;
+  telegramBotToken?: string;
+  telegramChannelId?: string;
+  mongoUri?: string;
+  adminUsername?: string;
+  currentPassword?: string;
+  newPassword?: string;
+}
+
+export interface AiDescriptionRequest {
+  title: string;
+  genre: string[];
+  year: number;
+  /** @nullable */
+  existingDescription?: string | null;
+}
+
+export interface AiTextResult {
+  text: string;
+}
+
+export interface AiTagsRequest {
+  title: string;
+  description: string;
+  genre: string[];
+  year: number;
+}
+
+export interface AiTagsResult {
+  tags: string[];
+  keywords: string[];
+}
+
+export interface GenreStats {
+  genre: string;
+  count: number;
+  revenue: number;
+}
+
+export interface AiAnalytics {
+  popularGenres: GenreStats[];
+  bestSellers: TopMovie[];
+  insight: string;
+  revenueInsight: string;
+}
+
+export interface MovieRecommendation {
+  movieId: string;
+  title: string;
+  posterUrl: string;
+  reason: string;
+  score: number;
+}
+
+export interface AiRecommendations {
+  recommendations: MovieRecommendation[];
+  reasoning: string;
+}
+
 export type ListMoviesParams = {
 genre?: string;
 quality?: string;
@@ -264,6 +400,20 @@ export type ListSeriesParams = {
 genre?: string;
 quality?: string;
 status?: string;
+search?: string;
+page?: number;
+limit?: number;
+};
+
+export type ListAdminOrdersParams = {
+search?: string;
+status?: string;
+paymentStatus?: string;
+page?: number;
+limit?: number;
+};
+
+export type ListAdminUsersParams = {
 search?: string;
 page?: number;
 limit?: number;

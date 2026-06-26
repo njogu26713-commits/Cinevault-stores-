@@ -572,3 +572,238 @@ export const GetMpesaStatusResponse = zod.object({
 })
 
 
+/**
+ * @summary Dashboard overview stats
+ */
+export const GetAdminStatsResponse = zod.object({
+  "totalMovies": zod.number(),
+  "totalSeries": zod.number(),
+  "totalOrders": zod.number(),
+  "totalRevenue": zod.number(),
+  "deliveredOrders": zod.number(),
+  "pendingOrders": zod.number(),
+  "failedOrders": zod.number(),
+  "recentOrders": zod.array(zod.object({
+  "id": zod.string(),
+  "movieId": zod.string(),
+  "movieTitle": zod.string(),
+  "moviePosterUrl": zod.string(),
+  "telegramUsername": zod.string(),
+  "phone": zod.string(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'payment_initiated', 'payment_confirmed', 'delivering', 'delivered', 'failed']),
+  "paymentStatus": zod.enum(['pending', 'initiated', 'confirmed', 'failed']),
+  "checkoutRequestId": zod.string().nullish(),
+  "merchantRequestId": zod.string().nullish(),
+  "mpesaReceiptNumber": zod.string().nullish(),
+  "deliveredAt": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "revenueByDay": zod.array(zod.object({
+  "date": zod.string(),
+  "revenue": zod.number(),
+  "orders": zod.number()
+})),
+  "topMovies": zod.array(zod.object({
+  "movieId": zod.string(),
+  "movieTitle": zod.string(),
+  "moviePosterUrl": zod.string(),
+  "totalSales": zod.number(),
+  "totalRevenue": zod.number()
+}))
+})
+
+
+/**
+ * @summary List all orders (admin)
+ */
+export const ListAdminOrdersQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "status": zod.coerce.string().optional(),
+  "paymentStatus": zod.coerce.string().optional(),
+  "page": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListAdminOrdersResponse = zod.object({
+  "orders": zod.array(zod.object({
+  "id": zod.string(),
+  "movieId": zod.string(),
+  "movieTitle": zod.string(),
+  "moviePosterUrl": zod.string(),
+  "telegramUsername": zod.string(),
+  "phone": zod.string(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'payment_initiated', 'payment_confirmed', 'delivering', 'delivered', 'failed']),
+  "paymentStatus": zod.enum(['pending', 'initiated', 'confirmed', 'failed']),
+  "checkoutRequestId": zod.string().nullish(),
+  "merchantRequestId": zod.string().nullish(),
+  "mpesaReceiptNumber": zod.string().nullish(),
+  "deliveredAt": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "totalPages": zod.number()
+})
+
+
+/**
+ * @summary List users aggregated from orders
+ */
+export const ListAdminUsersQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "page": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListAdminUsersResponse = zod.object({
+  "users": zod.array(zod.object({
+  "telegramUsername": zod.string(),
+  "phone": zod.string(),
+  "totalOrders": zod.number(),
+  "totalSpent": zod.number(),
+  "lastOrderAt": zod.string(),
+  "deliveredOrders": zod.number()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "totalPages": zod.number()
+})
+
+
+/**
+ * @summary Upload a movie file to Telegram and save the file_id
+ */
+export const UploadMovieFileParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UploadMovieFileBody = zod.object({
+  "fileName": zod.string()
+})
+
+export const UploadMovieFileResponse = zod.object({
+  "telegramFileId": zod.string(),
+  "fileSize": zod.number(),
+  "fileName": zod.string()
+})
+
+
+/**
+ * @summary Get admin/system settings
+ */
+export const GetAdminSettingsResponse = zod.object({
+  "mpesaConsumerKey": zod.string().optional(),
+  "mpesaConsumerSecret": zod.string().optional(),
+  "mpesaShortcode": zod.string().optional(),
+  "mpesaPasskey": zod.string().optional(),
+  "mpesaCallbackUrl": zod.string().optional(),
+  "telegramBotToken": zod.string().optional(),
+  "telegramChannelId": zod.string().optional(),
+  "mongoUri": zod.string().optional(),
+  "adminUsername": zod.string()
+})
+
+
+/**
+ * @summary Update admin/system settings
+ */
+export const UpdateAdminSettingsBody = zod.object({
+  "mpesaConsumerKey": zod.string().optional(),
+  "mpesaConsumerSecret": zod.string().optional(),
+  "mpesaShortcode": zod.string().optional(),
+  "mpesaPasskey": zod.string().optional(),
+  "mpesaCallbackUrl": zod.string().optional(),
+  "telegramBotToken": zod.string().optional(),
+  "telegramChannelId": zod.string().optional(),
+  "mongoUri": zod.string().optional(),
+  "adminUsername": zod.string().optional(),
+  "currentPassword": zod.string().optional(),
+  "newPassword": zod.string().optional()
+})
+
+export const UpdateAdminSettingsResponse = zod.object({
+  "mpesaConsumerKey": zod.string().optional(),
+  "mpesaConsumerSecret": zod.string().optional(),
+  "mpesaShortcode": zod.string().optional(),
+  "mpesaPasskey": zod.string().optional(),
+  "mpesaCallbackUrl": zod.string().optional(),
+  "telegramBotToken": zod.string().optional(),
+  "telegramChannelId": zod.string().optional(),
+  "mongoUri": zod.string().optional(),
+  "adminUsername": zod.string()
+})
+
+
+/**
+ * @summary AI-generate a movie/series description
+ */
+export const AiGenerateDescriptionBody = zod.object({
+  "title": zod.string(),
+  "genre": zod.array(zod.string()),
+  "year": zod.number(),
+  "existingDescription": zod.string().nullish()
+})
+
+export const AiGenerateDescriptionResponse = zod.object({
+  "text": zod.string()
+})
+
+
+/**
+ * @summary AI-generate tags and keywords for a movie/series
+ */
+export const AiGenerateTagsBody = zod.object({
+  "title": zod.string(),
+  "description": zod.string(),
+  "genre": zod.array(zod.string()),
+  "year": zod.number()
+})
+
+export const AiGenerateTagsResponse = zod.object({
+  "tags": zod.array(zod.string()),
+  "keywords": zod.array(zod.string())
+})
+
+
+/**
+ * @summary AI analytics - popular genres, best sellers, revenue trends
+ */
+export const GetAiAnalyticsResponse = zod.object({
+  "popularGenres": zod.array(zod.object({
+  "genre": zod.string(),
+  "count": zod.number(),
+  "revenue": zod.number()
+})),
+  "bestSellers": zod.array(zod.object({
+  "movieId": zod.string(),
+  "movieTitle": zod.string(),
+  "moviePosterUrl": zod.string(),
+  "totalSales": zod.number(),
+  "totalRevenue": zod.number()
+})),
+  "insight": zod.string(),
+  "revenueInsight": zod.string()
+})
+
+
+/**
+ * @summary AI recommendations for featuring movies/series
+ */
+export const GetAiRecommendationsResponse = zod.object({
+  "recommendations": zod.array(zod.object({
+  "movieId": zod.string(),
+  "title": zod.string(),
+  "posterUrl": zod.string(),
+  "reason": zod.string(),
+  "score": zod.number()
+})),
+  "reasoning": zod.string()
+})
+
+
