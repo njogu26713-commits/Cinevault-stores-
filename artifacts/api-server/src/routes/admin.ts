@@ -9,6 +9,7 @@ import { Series } from "../models/Series";
 import { Order } from "../models/Order";
 import { getTelegramBot } from "../services/telegram";
 import { logger } from "../lib/logger";
+import { getSetting, saveSettings } from "../lib/settings-store";
 
 const router = Router();
 const upload = multer({ dest: os.tmpdir() });
@@ -323,13 +324,13 @@ router.get("/settings", async (_req, res) => {
   return res.json({
     mpesaConsumerKey: mask(process.env["MPESA_CONSUMER_KEY"]),
     mpesaConsumerSecret: mask(process.env["MPESA_CONSUMER_SECRET"]),
-    mpesaShortcode: process.env["MPESA_SHORTCODE"] || "",
+    mpesaShortcode: getSetting("mpesaShortcode") || process.env["MPESA_SHORTCODE"] || "",
     mpesaPasskey: mask(process.env["MPESA_PASSKEY"]),
-    mpesaCallbackUrl: process.env["MPESA_CALLBACK_URL"] || "",
+    mpesaCallbackUrl: getSetting("mpesaCallbackUrl") || process.env["MPESA_CALLBACK_URL"] || "",
     telegramBotToken: mask(process.env["TELEGRAM_BOT_TOKEN"]),
-    telegramChannelId: process.env["TELEGRAM_CHANNEL_ID"] || "",
+    telegramChannelId: getSetting("telegramChannelId") || process.env["TELEGRAM_CHANNEL_ID"] || "",
     mongoUri: mask(process.env["MONGODB_URI"]),
-    adminUsername: process.env["ADMIN_USERNAME"] || "admin",
+    adminUsername: getSetting("adminUsername") || process.env["ADMIN_USERNAME"] || "admin",
   });
 });
 
@@ -346,21 +347,108 @@ router.put("/settings", async (req, res) => {
     adminUsername,
   } = req.body;
 
-  // In a real system these would be persisted to a settings DB or env management
-  // For now we return the accepted values without actually saving (env vars require restart)
-  logger.info({ adminUsername, mpesaShortcode, mpesaCallbackUrl, telegramChannelId }, "Settings update requested");
+  // Persist non-secret values to settings file so they survive restarts
+  saveSettings({
+    ...(mpesaShortcode && { mpesaShortcode }),
+    ...(mpesaCallbackUrl && { mpesaCallbackUrl }),
+    ...(telegramChannelId && { telegramChannelId }),
+    ...(adminUsername && { adminUsername }),
+  });
+
+  logger.info({ adminUsername, mpesaShortcode, mpesaCallbackUrl, telegramChannelId }, "Settings updated");
 
   return res.json({
     mpesaConsumerKey: mpesaConsumerKey ? mpesaConsumerKey.slice(0, 4) + "****" : "",
     mpesaConsumerSecret: mpesaConsumerSecret ? mpesaConsumerSecret.slice(0, 4) + "****" : "",
-    mpesaShortcode: mpesaShortcode || process.env["MPESA_SHORTCODE"] || "",
+    mpesaShortcode: mpesaShortcode || getSetting("mpesaShortcode") || "",
     mpesaPasskey: mpesaPasskey ? mpesaPasskey.slice(0, 4) + "****" : "",
-    mpesaCallbackUrl: mpesaCallbackUrl || process.env["MPESA_CALLBACK_URL"] || "",
+    mpesaCallbackUrl: mpesaCallbackUrl || getSetting("mpesaCallbackUrl") || "",
     telegramBotToken: telegramBotToken ? telegramBotToken.slice(0, 4) + "****" : "",
-    telegramChannelId: telegramChannelId || process.env["TELEGRAM_CHANNEL_ID"] || "",
+    telegramChannelId: telegramChannelId || getSetting("telegramChannelId") || "",
     mongoUri: "",
-    adminUsername: adminUsername || process.env["ADMIN_USERNAME"] || "admin",
+    adminUsername: adminUsername || getSetting("adminUsername") || "admin",
   });
+});
+
+// ── GET /admin/telegram/detect-channel ───────────────────────────────────────
+router.get("/telegram/detect-channel", async (_req, res) => {
+  const token = process.env["TELEGRAM_BOT_TOKEN"];
+  if (!token) {
+    return res.status(400).json({ error: "TELEGRAM_BOT_TOKEN is not set. Add it in Settings first." });
+  }
+
+  try {
+    // Fetch recent updates — look for my_chat_member events (bot added as admin)
+    // and channel_post events (bot can see the channel)
+    const url = `https://api.telegram.org/bot${token}/getUpdates?limit=100&allowed_updates=["my_chat_member","channel_post","message"]`;
+    const response = await fetch(url);
+    const data = await response.json() as any;
+
+    if (!data.ok) {
+      return res.status(400).json({ error: `Telegram API error: ${data.description}` });
+    }
+
+    const channelMap = new Map<string, { id: string; title: string; type: string; username?: string }>();
+
+    for (const update of data.result ?? []) {
+      // my_chat_member: bot was added/promoted in a chat
+      const mcm = update.my_chat_member;
+      if (mcm) {
+        const chat = mcm.chat;
+        const newMember = mcm.new_chat_member;
+        if (
+          (chat.type === "channel" || chat.type === "supergroup" || chat.type === "group") &&
+          (newMember?.status === "administrator" || newMember?.status === "member")
+        ) {
+          channelMap.set(String(chat.id), {
+            id: String(chat.id),
+            title: chat.title || chat.username || String(chat.id),
+            type: chat.type,
+            username: chat.username,
+          });
+        }
+      }
+
+      // channel_post: bot is in a channel and received a message
+      const cp = update.channel_post ?? update.message;
+      if (cp) {
+        const chat = cp.chat;
+        if (chat.type === "channel" || chat.type === "supergroup" || chat.type === "group") {
+          channelMap.set(String(chat.id), {
+            id: String(chat.id),
+            title: chat.title || chat.username || String(chat.id),
+            type: chat.type,
+            username: chat.username,
+          });
+        }
+      }
+    }
+
+    // Also fetch bot info so we can display the bot name
+    const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const meData = await meRes.json() as any;
+    const botName = meData.ok ? `@${meData.result.username}` : "your bot";
+
+    const channels = Array.from(channelMap.values());
+
+    return res.json({ channels, botName, updatesChecked: data.result?.length ?? 0 });
+  } catch (err) {
+    logger.error({ err }, "Telegram detect-channel failed");
+    return res.status(500).json({ error: "Failed to reach Telegram API", details: String(err) });
+  }
+});
+
+// ── POST /admin/telegram/save-channel ────────────────────────────────────────
+router.post("/telegram/save-channel", async (req, res) => {
+  const { channelId } = req.body;
+  if (!channelId) {
+    return res.status(400).json({ error: "channelId is required" });
+  }
+
+  saveSettings({ telegramChannelId: String(channelId) });
+  logger.info({ channelId }, "Telegram channel ID saved");
+
+  return res.json({ ok: true, telegramChannelId: String(channelId) });
 });
 
 // ── POST /admin/ai/generate-description ──────────────────────────────────────
