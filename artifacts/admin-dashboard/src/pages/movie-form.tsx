@@ -79,7 +79,7 @@ export function MovieForm() {
         genre: movie.genre.join(", "),
         year: movie.year,
         duration: movie.duration,
-        language: "English", // API doesn't have language, defaulting
+        language: "English",
         quality: movie.quality as any,
         fileSize: movie.fileSize,
         price: movie.price,
@@ -91,6 +91,34 @@ export function MovieForm() {
       });
     }
   }, [movie, form]);
+
+  // Pre-fill from Research Assistant
+  useEffect(() => {
+    if (id) return; // only on add
+    const raw = localStorage.getItem("cinevault_prefill");
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      if (d.type !== "movie") return;
+      localStorage.removeItem("cinevault_prefill");
+      form.reset({
+        title: d.title || "",
+        description: d.ai?.seoDescription || d.overview || "",
+        genre: (d.genres || []).join(", "),
+        year: d.year || new Date().getFullYear(),
+        duration: d.runtime || "2h 00m",
+        language: d.language === "EN" ? "English" : (d.language || "English"),
+        quality: "1080p",
+        fileSize: "1.5 GB",
+        price: d.ai?.suggestedPriceKes || 200,
+        posterUrl: d.posterUrl || "",
+        bannerUrl: d.bannerUrl || "",
+        youtubeTrailerId: d.youtubeTrailerId || "",
+        featured: d.ai?.featured || false,
+        rating: d.tmdbRating || 0,
+      });
+    } catch {}
+  }, [id, form]);
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);

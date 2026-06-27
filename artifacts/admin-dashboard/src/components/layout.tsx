@@ -1,15 +1,25 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Film, Tv, ShoppingCart, Users, Settings, Sparkles, Menu, Video } from "lucide-react";
+import { LayoutDashboard, Film, Tv, ShoppingCart, Users, Settings, Sparkles, Menu, Video, Search, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { logout, email } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    await logout();
+    toast({ title: "Signed out successfully" });
+  };
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Research", href: "/research", icon: Search },
     { name: "Movies", href: "/movies", icon: Film },
     { name: "Series", href: "/series", icon: Tv },
     { name: "Orders", href: "/orders", icon: ShoppingCart },
@@ -32,7 +42,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="text-lg font-bold tracking-tight text-sidebar-foreground">CineVault Admin</span>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
             const Icon = item.icon;
@@ -55,6 +65,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        {/* Logout */}
+        <div className="border-t border-sidebar-border px-3 py-3">
+          <div className="text-xs text-muted-foreground px-3 pb-2 truncate">{email}</div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}

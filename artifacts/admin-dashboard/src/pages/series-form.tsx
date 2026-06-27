@@ -113,6 +113,55 @@ export function SeriesForm() {
     name: "seasons",
   });
 
+  // Pre-fill from Research Assistant
+  useEffect(() => {
+    if (isEdit) return;
+    const raw = localStorage.getItem("cinevault_prefill");
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      if (d.type !== "series") return;
+      localStorage.removeItem("cinevault_prefill");
+
+      const mappedSeasons = (d.seasons || []).map((s: any) => ({
+        seasonNumber: s.seasonNumber,
+        episodes: (s.episodes || []).map((e: any) => ({
+          episodeNumber: e.episodeNumber,
+          title: e.title || `Episode ${e.episodeNumber}`,
+          duration: e.duration || "45m",
+          telegramFileId: "",
+        })),
+      }));
+
+      // Map TMDb status to our enum
+      const statusMap: Record<string, "Ongoing" | "Completed" | "Cancelled"> = {
+        "Returning Series": "Ongoing",
+        "Ended": "Completed",
+        "Canceled": "Cancelled",
+        "In Production": "Ongoing",
+      };
+
+      form.reset({
+        title: d.title || "",
+        description: d.ai?.seoDescription || d.overview || "",
+        posterUrl: d.posterUrl || "",
+        bannerUrl: d.bannerUrl || "",
+        youtubeTrailerId: d.youtubeTrailerId || "",
+        genre: (d.genres || []).join(", "),
+        quality: "1080p",
+        rating: d.tmdbRating || undefined,
+        year: d.year || new Date().getFullYear(),
+        status: statusMap[d.status] || "Ongoing",
+        featured: d.ai?.featured || false,
+        pricePerSeason: d.ai?.suggestedPriceKes || 300,
+        seasons: mappedSeasons,
+      });
+
+      // Expand all imported seasons
+      setExpandedSeasons(new Set(mappedSeasons.map((_: any, i: number) => i)));
+    } catch {}
+  }, [isEdit, form]);
+
   useEffect(() => {
     if (existing) {
       form.reset({

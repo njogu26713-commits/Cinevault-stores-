@@ -13,6 +13,7 @@ import { Orders } from "@/pages/orders";
 import { Users } from "@/pages/users";
 import { Settings } from "@/pages/settings";
 import { AiFeatures } from "@/pages/ai-features";
+import { Research } from "@/pages/research";
 import { Login } from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -48,6 +49,7 @@ function ProtectedRouter() {
         <Route path="/users" component={Users} />
         <Route path="/settings" component={Settings} />
         <Route path="/ai" component={AiFeatures} />
+        <Route path="/research" component={Research} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

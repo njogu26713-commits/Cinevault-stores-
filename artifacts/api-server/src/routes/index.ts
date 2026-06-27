@@ -7,6 +7,7 @@ import paymentsRouter from "./payments";
 import seedRouter from "./seed";
 import adminRouter from "./admin";
 import authRouter from "./auth";
+import researchRouter from "./research";
 import { requireAdminAuth } from "../middleware/adminAuth";
 
 const router: IRouter = Router();
@@ -21,6 +22,7 @@ router.use("/payments", paymentsRouter);
 router.use("/admin/auth", authRouter);
 
 // All other /admin routes require a valid JWT cookie
+router.use("/admin/research", requireAdminAuth, researchRouter);
 router.use("/admin", requireAdminAuth, adminRouter);
 
 // Seed endpoint — available in all environments (only seeds if DB is empty)
