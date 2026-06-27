@@ -522,14 +522,14 @@ router.post("/telegram/save-channel", async (req, res) => {
 router.post("/ai/generate-description", async (req, res) => {
   const { title, genre, year, existingDescription } = req.body;
 
-  const apiKey = process.env["XAI_API_KEY"];
+  const apiKey = process.env["GROQ_API_KEY"];
   if (!apiKey) {
-    return res.status(503).json({ error: "AI features require an XAI_API_KEY secret. Add it in the Secrets tab." });
+    return res.status(503).json({ error: "AI features require a GROQ_API_KEY secret. Add it in the Secrets tab." });
   }
 
   try {
     const { default: OpenAI } = await import("openai");
-    const client = new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
+    const client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
 
     const prompt = `You are an expert movie critic and copywriter. Write a compelling, engaging movie description for:
 
@@ -541,7 +541,7 @@ ${existingDescription ? `Existing description (improve this): ${existingDescript
 Write 2-3 paragraphs that would make someone want to watch this movie. Be vivid, specific, and exciting. Do not reveal spoilers. Do not start with "In" or "This movie".`;
 
     const result = await client.chat.completions.create({
-      model: "grok-3",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
     });
     const text = result.choices[0].message.content ?? "";
@@ -557,14 +557,14 @@ Write 2-3 paragraphs that would make someone want to watch this movie. Be vivid,
 router.post("/ai/generate-tags", async (req, res) => {
   const { title, description, genre, year } = req.body;
 
-  const apiKey = process.env["XAI_API_KEY"];
+  const apiKey = process.env["GROQ_API_KEY"];
   if (!apiKey) {
-    return res.status(503).json({ error: "AI features require an XAI_API_KEY secret. Add it in the Secrets tab." });
+    return res.status(503).json({ error: "AI features require a GROQ_API_KEY secret. Add it in the Secrets tab." });
   }
 
   try {
     const { default: OpenAI } = await import("openai");
-    const client = new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
+    const client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
 
     const prompt = `Generate tags and keywords for this movie for a streaming platform:
 
@@ -577,7 +577,7 @@ Return ONLY a valid JSON object with no markdown formatting:
 {"tags": ["tag1","tag2",...8-12 short descriptive tags], "keywords": ["kw1","kw2",...10-15 search keywords]}`;
 
     const result = await client.chat.completions.create({
-      model: "grok-3",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
     });
     let content = (result.choices[0].message.content ?? "").trim();
@@ -628,14 +628,14 @@ router.get("/ai/analytics", async (_req, res) => {
     const topGenre = genreStats[0]?._id || "Action";
     const totalRevenue = topMovies.reduce((s: number, m: any) => s + m.totalRevenue, 0);
 
-    const apiKey = process.env["XAI_API_KEY"];
+    const apiKey = process.env["GROQ_API_KEY"];
     let insight = `${topGenre} is your most popular genre by sales. Focus on acquiring more ${topGenre} titles.`;
     let revenueInsight = `Total confirmed revenue: KES ${totalRevenue.toLocaleString()}. Your top title drives the most conversions.`;
 
     if (apiKey) {
       try {
         const { default: OpenAI } = await import("openai");
-        const client = new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
+        const client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
 
         const prompt = `You are a streaming platform analytics AI. Given this data:
 Genre breakdown: ${JSON.stringify(genreStats.slice(0, 5))}
@@ -648,7 +648,7 @@ Provide TWO very short (1 sentence each) business insights:
 Return ONLY valid JSON with no markdown: {"insight": "...", "revenueInsight": "..."}`;
 
         const result = await client.chat.completions.create({
-          model: "grok-3",
+          model: "llama-3.3-70b-versatile",
           messages: [{ role: "user", content: prompt }],
         });
         let content = (result.choices[0].message.content ?? "").trim();
@@ -718,14 +718,14 @@ router.get("/ai/recommendations", async (_req, res) => {
 
     let reasoning = "Recommendations are based on sales performance, revenue, and content recency. Featuring these titles should maximize engagement.";
 
-    const apiKey = process.env["XAI_API_KEY"];
+    const apiKey = process.env["GROQ_API_KEY"];
     if (apiKey && top5.length > 0) {
       try {
         const { default: OpenAI } = await import("openai");
-        const client = new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
+        const client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
 
         const result = await client.chat.completions.create({
-          model: "grok-3",
+          model: "llama-3.3-70b-versatile",
           messages: [{
             role: "user",
             content: `You are a streaming platform curator. These are top-scoring movies for featuring on the homepage based on sales and recency: ${top5.map(m => `"${m.title}" (${m.sales} sales)`).join(", ")}. Write ONE sentence explaining why these movies are great homepage candidates. Be specific and confident.`,

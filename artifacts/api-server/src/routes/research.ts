@@ -32,10 +32,10 @@ function stripMd(text: string): string {
 }
 
 async function aiEnrich(data: any, type: "movie" | "series") {
-  const apiKey = process.env["XAI_API_KEY"];
+  const apiKey = process.env["GROQ_API_KEY"];
   if (!apiKey) return {};
 
-  const client = new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
+  const client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
 
   const prompt = `You are a content strategist for CineVault, a Kenyan movie streaming marketplace.
 
@@ -60,7 +60,7 @@ Return ONLY valid JSON (no markdown fences) with these exact keys:
 
   try {
     const result = await client.chat.completions.create({
-      model: "grok-3",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
     });
     const raw = stripMd(result.choices[0].message.content ?? "");
