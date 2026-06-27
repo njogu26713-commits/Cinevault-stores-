@@ -3,11 +3,23 @@ import mongoose from "mongoose";
 import { Movie } from "../models/Movie";
 import { Order } from "../models/Order";
 import { initiateSTKPush } from "../services/mpesa";
+import { deliverMovieFromChannel } from "../services/telegram";
 import {
   CreateOrderBody,
   GetOrderParams,
   GetUserOrdersParams,
 } from "@workspace/api-zod";
+
+// Payment bypass: active when MPESA credentials are missing OR PAYMENT_BYPASS=true
+function isPaymentBypassed(): boolean {
+  if (process.env["PAYMENT_BYPASS"] === "true") return true;
+  const hasCredentials =
+    process.env["MPESA_CONSUMER_KEY"] &&
+    process.env["MPESA_CONSUMER_SECRET"] &&
+    process.env["MPESA_SHORTCODE"] &&
+    process.env["MPESA_PASSKEY"];
+  return !hasCredentials;
+}
 
 const router = Router();
 
@@ -37,18 +49,60 @@ router.post("/", async (req, res) => {
       return res.status(404).json({ error: "Movie not found" });
     }
 
+    const cleanUsername = telegramUsername.replace(/^@/, "");
+
     const order = await Order.create({
       movieId,
       movieTitle: movie.title,
       moviePosterUrl: movie.posterUrl,
-      telegramUsername: telegramUsername.replace(/^@/, ""),
+      telegramUsername: cleanUsername,
       phone,
       amount: movie.price,
       status: "pending",
       paymentStatus: "pending",
     });
 
-    // Initiate M-Pesa STK push
+    // ── BYPASS MODE: auto-confirm and deliver without M-Pesa ─────────────────
+    if (isPaymentBypassed()) {
+      req.log.info({ orderId: order._id }, "Payment bypass active — auto-confirming order");
+
+      await Order.findByIdAndUpdate(order._id, {
+        paymentStatus: "confirmed",
+        status: "payment_confirmed",
+        mpesaReceiptNumber: `BYPASS-${Date.now()}`,
+      });
+
+      // Attempt delivery
+      try {
+        if (movie.telegramFileId) {
+          await Order.findByIdAndUpdate(order._id, { status: "delivering" });
+          await deliverMovieFromChannel({
+            telegramUsername: cleanUsername,
+            telegramFileId: movie.telegramFileId,
+            movieTitle: movie.title,
+            orderId: order._id.toString(),
+          });
+          await Order.findByIdAndUpdate(order._id, {
+            status: "delivered",
+            deliveredAt: new Date(),
+          });
+          req.log.info({ orderId: order._id }, "Bypass: movie delivered");
+        } else {
+          req.log.warn({ orderId: order._id }, "Bypass: no telegramFileId on movie — skipping delivery");
+        }
+      } catch (deliveryErr) {
+        req.log.error({ deliveryErr, orderId: order._id }, "Bypass: delivery failed");
+        await Order.findByIdAndUpdate(order._id, {
+          status: "failed",
+          failureReason: "Order confirmed but delivery failed. Contact support.",
+        });
+      }
+
+      const updated = await Order.findById(order._id);
+      return res.status(201).json(formatOrder(updated!));
+    }
+
+    // ── NORMAL MODE: initiate M-Pesa STK push ────────────────────────────────
     try {
       const stkResult = await initiateSTKPush({
         phone,
