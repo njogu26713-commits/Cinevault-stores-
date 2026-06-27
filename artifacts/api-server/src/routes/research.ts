@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -32,11 +32,10 @@ function stripMd(text: string): string {
 }
 
 async function aiEnrich(data: any, type: "movie" | "series") {
-  const apiKey = process.env["GEMINI_API_KEY"];
+  const apiKey = process.env["XAI_API_KEY"];
   if (!apiKey) return {};
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const client = new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
 
   const prompt = `You are a content strategist for CineVault, a Kenyan movie streaming marketplace.
 
@@ -60,8 +59,11 @@ Return ONLY valid JSON (no markdown fences) with these exact keys:
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const raw = stripMd(result.response.text());
+    const result = await client.chat.completions.create({
+      model: "grok-3",
+      messages: [{ role: "user", content: prompt }],
+    });
+    const raw = stripMd(result.choices[0].message.content ?? "");
     return JSON.parse(raw);
   } catch (e) {
     logger.warn({ e }, "AI enrichment failed");
