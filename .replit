@@ -18,26 +18,10 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "API Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Admin Dashboard"
+args = "Start application"
 
 [[workflows.workflow]]
-name = "API Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "fuser -k 3000/tcp 2>/dev/null; sleep 3; cd artifacts/api-server && PORT=3000 pnpm run dev"
-waitForPort = 3000
-
-[[workflows.workflow]]
-name = "Admin Dashboard"
+name = "Start application"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -45,7 +29,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/admin-dashboard && PORT=5000 BASE_PATH=/ pnpm run dev"
+args = "fuser -k 3000/tcp 5000/tcp 2>/dev/null; sleep 2; (cd artifacts/api-server && PORT=3000 pnpm run dev) & (cd artifacts/admin-dashboard && PORT=5000 BASE_PATH=/ pnpm run dev) & wait"
 waitForPort = 5000
 
 [agent]
@@ -63,3 +47,7 @@ MPESA_ENV = "sandbox"
 ADMIN_EMAIL = "bgithinji27@gmail.com"
 ADMIN_PASSWORD_HASH = "$2b$12$CujWhphTNCv2nsvvBDeyeew./mUdfGdQ6F6/Oum9FebTCPFh6oavm"
 ADMIN_JWT_SECRET = "2d565a320e8f88ffd36c28be039efcdfceddefc6eb68696fa16b37746e4a2e781441398e82300b5b9586cd4d67155194"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
