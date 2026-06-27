@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -95,6 +95,7 @@ export function MovieForm() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [telegramFileId, setTelegramFileId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (movie?.telegramFileId) {
@@ -515,19 +516,25 @@ export function MovieForm() {
                 )}
 
                 <div className="space-y-2">
-                  <div className="relative">
-                    <Input 
-                      type="file" 
-                      accept="video/*" 
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                      onChange={handleFileUpload}
-                      disabled={isUploading}
-                    />
-                    <Button variant="outline" className="w-full" disabled={isUploading}>
-                      <Upload className="w-4 h-4 mr-2" />
-                      {isUploading ? "Uploading..." : "Select File"}
-                    </Button>
-                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={isUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="upload-file-btn"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isUploading ? "Uploading..." : "Select File to Upload"}
+                  </Button>
                   {isUploading && (
                     <div className="space-y-1">
                       <Progress value={uploadProgress} className="h-2" />
