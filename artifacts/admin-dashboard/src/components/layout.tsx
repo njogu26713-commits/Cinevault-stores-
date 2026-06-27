@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Film, ShoppingCart, Users, Settings, Sparkles, Menu, Video } from "lucide-react";
+import { LayoutDashboard, Film, Tv, ShoppingCart, Users, Settings, Sparkles, Menu, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -11,6 +11,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Movies", href: "/movies", icon: Film },
+    { name: "Series", href: "/series", icon: Tv },
     { name: "Orders", href: "/orders", icon: ShoppingCart },
     { name: "Users", href: "/users", icon: Users },
     { name: "Settings", href: "/settings", icon: Settings },

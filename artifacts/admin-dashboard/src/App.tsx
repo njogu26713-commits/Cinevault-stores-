@@ -7,6 +7,8 @@ import { Layout } from "@/components/layout";
 import { Dashboard } from "@/pages/dashboard";
 import { Movies } from "@/pages/movies";
 import { MovieForm } from "@/pages/movie-form";
+import { SeriesList } from "@/pages/series";
+import { SeriesForm } from "@/pages/series-form";
 import { Orders } from "@/pages/orders";
 import { Users } from "@/pages/users";
 import { Settings } from "@/pages/settings";
@@ -23,6 +25,9 @@ function Router() {
         <Route path="/movies" component={Movies} />
         <Route path="/movies/add" component={MovieForm} />
         <Route path="/movies/:id/edit" component={MovieForm} />
+        <Route path="/series" component={SeriesList} />
+        <Route path="/series/add" component={SeriesForm} />
+        <Route path="/series/:id/edit" component={SeriesForm} />
         <Route path="/orders" component={Orders} />
         <Route path="/users" component={Users} />
         <Route path="/settings" component={Settings} />
