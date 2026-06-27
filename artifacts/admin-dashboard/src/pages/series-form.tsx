@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles, Upload, CheckCircle2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 const episodeSchema = z.object({
   episodeNumber: z.coerce.number().min(1),
@@ -88,6 +89,10 @@ export function SeriesForm() {
   const generateDesc = useAiGenerateDescription();
   const [generatingDesc, setGeneratingDesc] = useState(false);
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(new Set([0]));
+  const [uploadingEpisode, setUploadingEpisode] = useState<{ sIdx: number; eIdx: number } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const episodeFileInputRef = useRef<HTMLInputElement>(null);
+  const pendingUploadRef = useRef<{ sIdx: number; eIdx: number } | null>(null);
 
   const form = useForm<SeriesFormValues>({
     resolver: zodResolver(seriesSchema),
@@ -212,6 +217,62 @@ export function SeriesForm() {
     );
   };
 
+  const triggerEpisodeUpload = (sIdx: number, eIdx: number) => {
+    if (!isEdit) {
+      toast({ title: "Save the series first before uploading files", variant: "destructive" });
+      return;
+    }
+    pendingUploadRef.current = { sIdx, eIdx };
+    episodeFileInputRef.current?.click();
+  };
+
+  const handleEpisodeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const target = pendingUploadRef.current;
+    if (!file || !target || !id) return;
+
+    const { sIdx, eIdx } = target;
+    setUploadingEpisode({ sIdx, eIdx });
+    setUploadProgress(0);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        setUploadProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      setUploadingEpisode(null);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        setUploadProgress(100);
+        try {
+          const data = JSON.parse(xhr.responseText);
+          form.setValue(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`, data.telegramFileId);
+          toast({ title: "Episode uploaded successfully" });
+        } catch {
+          toast({ title: "Upload failed — bad response", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Episode upload failed", variant: "destructive" });
+      }
+      if (episodeFileInputRef.current) episodeFileInputRef.current.value = "";
+    });
+
+    xhr.addEventListener("error", () => {
+      setUploadingEpisode(null);
+      toast({ title: "Upload failed — network error", variant: "destructive" });
+      if (episodeFileInputRef.current) episodeFileInputRef.current.value = "";
+    });
+
+    xhr.open("POST", `/api/admin/series/${id}/seasons/${sIdx}/episodes/${eIdx}/upload-file`);
+    xhr.send(formData);
+  };
+
   const addSeason = () => {
     const nextNum = (seasonFields.length ?? 0) + 1;
     appendSeason({ seasonNumber: nextNum, episodes: [] });
@@ -281,6 +342,14 @@ export function SeriesForm() {
 
   return (
     <div className="space-y-6 max-w-4xl pb-12">
+      {/* Hidden shared file input for episode uploads */}
+      <input
+        ref={episodeFileInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleEpisodeFileChange}
+      />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">
           {isEdit ? "Edit Series" : "Add Series"}
@@ -585,16 +654,46 @@ function SeasonEditor({
                 />
               </div>
               <div className="col-span-3">
-                <label className="text-xs text-muted-foreground block mb-1">Telegram File ID</label>
-                <FormField
-                  control={form.control}
-                  name={`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl><Input {...field} className="h-8" placeholder="Optional" /></FormControl>
-                    </FormItem>
-                  )}
-                />
+                <label className="text-xs text-muted-foreground block mb-1">File</label>
+                {(() => {
+                  const fileId = form.watch(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`);
+                  const isThisUploading = uploadingEpisode?.sIdx === sIdx && uploadingEpisode?.eIdx === eIdx;
+                  return (
+                    <div className="space-y-1">
+                      {fileId ? (
+                        <div className="flex items-center gap-1.5 h-8 px-2 bg-green-500/10 border border-green-500/20 rounded text-xs text-green-600">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span className="truncate font-mono">{fileId.slice(0, 20)}…</span>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-full text-xs"
+                          disabled={!!uploadingEpisode}
+                          onClick={() => triggerEpisodeUpload(sIdx, eIdx)}
+                        >
+                          <Upload className="w-3 h-3 mr-1" />
+                          {isThisUploading ? `${uploadProgress}%` : "Upload"}
+                        </Button>
+                      )}
+                      {isThisUploading && <Progress value={uploadProgress} className="h-1" />}
+                      {fileId && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-full text-xs text-muted-foreground"
+                          disabled={!!uploadingEpisode}
+                          onClick={() => triggerEpisodeUpload(sIdx, eIdx)}
+                        >
+                          <Upload className="w-3 h-3 mr-1" /> Replace
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               <div className="col-span-1 flex justify-center">
                 <Button

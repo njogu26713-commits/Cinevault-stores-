@@ -202,48 +202,48 @@ export function MovieForm() {
     });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !id) return;
 
     setIsUploading(true);
     setUploadProgress(0);
-    
+
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
-      // Simulate progress since fetch doesn't support upload progress natively easily without XHR
-      const progressInterval = setInterval(() => {
-        setUploadProgress(p => {
-          if (p >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return p + 10;
-        });
-      }, 500);
+    const xhr = new XMLHttpRequest();
 
-      const res = await fetch(`/api/admin/movies/${id}/upload-file`, {
-        method: "POST",
-        body: formData
-      });
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        setUploadProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    });
 
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      if (!res.ok) throw new Error("Upload failed");
-      
-      const data = await res.json();
-      setTelegramFileId(data.telegramFileId);
-      toast({ title: "File uploaded successfully" });
-      queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(id) });
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Upload failed", variant: "destructive" });
-    } finally {
+    xhr.addEventListener("load", () => {
       setIsUploading(false);
-    }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        setUploadProgress(100);
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setTelegramFileId(data.telegramFileId);
+          toast({ title: "File uploaded successfully" });
+          queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(id) });
+        } catch {
+          toast({ title: "Upload failed — bad response", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Upload failed", variant: "destructive" });
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      setIsUploading(false);
+      toast({ title: "Upload failed — network error", variant: "destructive" });
+    });
+
+    xhr.open("POST", `/api/admin/movies/${id}/upload-file`);
+    xhr.send(formData);
   };
 
   if (isEditing && isMovieLoading) {

@@ -317,6 +317,73 @@ router.post("/movies/:id/upload-file", upload.single("file"), async (req, res) =
   }
 });
 
+// ── POST /admin/series/:id/seasons/:sIdx/episodes/:eIdx/upload-file ──────────
+router.post("/series/:id/seasons/:sIdx/episodes/:eIdx/upload-file", upload.single("file"), async (req, res) => {
+  const { id, sIdx, eIdx } = req.params;
+  const seasonIdx = Number(sIdx);
+  const episodeIdx = Number(eIdx);
+
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid series ID" });
+  }
+
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  const channelId = process.env["TELEGRAM_CHANNEL_ID"];
+  if (!channelId) {
+    fs.unlink(file.path, () => {});
+    return res.status(500).json({ error: "TELEGRAM_CHANNEL_ID is not configured" });
+  }
+
+  try {
+    const series = await Series.findById(id);
+    if (!series) {
+      fs.unlink(file.path, () => {});
+      return res.status(404).json({ error: "Series not found" });
+    }
+
+    const season = series.seasons[seasonIdx];
+    if (!season) {
+      fs.unlink(file.path, () => {});
+      return res.status(404).json({ error: "Season not found" });
+    }
+
+    const episode = season.episodes[episodeIdx];
+    if (!episode) {
+      fs.unlink(file.path, () => {});
+      return res.status(404).json({ error: "Episode not found" });
+    }
+
+    const bot = getTelegramBot();
+    const originalName = file.originalname || `${series.title}_S${season.seasonNumber}E${episode.episodeNumber}.mp4`;
+    const caption = `📺 ${series.title} | S${season.seasonNumber}E${String(episode.episodeNumber).padStart(2, "0")} - ${episode.title}`;
+
+    const sentMessage = await bot.sendDocument(channelId, file.path, {
+      caption,
+    }, {
+      filename: originalName,
+      contentType: file.mimetype || "video/mp4",
+    });
+
+    const fileId = sentMessage.document?.file_id;
+    if (!fileId) throw new Error("Telegram did not return a file_id");
+
+    series.seasons[seasonIdx].episodes[episodeIdx].telegramFileId = fileId;
+    await series.save();
+
+    logger.info({ seriesId: id, seasonIdx, episodeIdx, fileId }, "Episode uploaded to Telegram");
+    return res.json({ telegramFileId: fileId });
+  } catch (err: any) {
+    logger.error({ err, seriesId: id }, "Failed to upload episode to Telegram");
+    return res.status(500).json({ error: "Upload failed", details: String(err) });
+  } finally {
+    fs.unlink(file.path, () => {});
+  }
+});
+
 // ── GET /admin/settings ──────────────────────────────────────────────────────
 router.get("/settings", async (_req, res) => {
   const mask = (v: string | undefined) => (v ? v.slice(0, 4) + "****" : "");
