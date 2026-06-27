@@ -45,8 +45,8 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/admin-dashboard && PORT=5173 BASE_PATH=/ pnpm run dev"
-waitForPort = 5173
+args = "cd artifacts/admin-dashboard && PORT=5000 BASE_PATH=/ pnpm run dev"
+waitForPort = 5000
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"

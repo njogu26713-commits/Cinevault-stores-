@@ -66,6 +66,12 @@ export default defineConfig({
     headers: {
       "Content-Security-Policy": "frame-ancestors *",
     },
+    proxy: {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
     fs: {
       strict: true,
     },
