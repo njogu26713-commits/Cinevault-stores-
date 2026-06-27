@@ -49,7 +49,7 @@ args = "cd artifacts/admin-dashboard && PORT=5173 BASE_PATH=/ pnpm run dev"
 waitForPort = 5173
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
