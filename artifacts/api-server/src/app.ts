@@ -38,10 +38,14 @@ app.use("/api", router);
 if (process.env.NODE_ENV === "production") {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const dashboardDist = path.resolve(__dirname, "../../admin-dashboard/dist/public");
-  app.use(express.static(dashboardDist));
-  app.get("*", (_req, res) => {
-    res.sendFile(path.join(dashboardDist, "index.html"));
-  });
+  const fs = await import("fs");
+  if (fs.existsSync(dashboardDist)) {
+    app.use(express.static(dashboardDist));
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      res.sendFile(path.join(dashboardDist, "index.html"));
+    });
+  }
 }
 
 export default app;

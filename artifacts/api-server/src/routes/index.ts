@@ -12,6 +12,10 @@ import { requireAdminAuth } from "../middleware/adminAuth";
 
 const router: IRouter = Router();
 
+router.get("/", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
 router.use(healthRouter);
 router.use("/movies", moviesRouter);
 router.use("/series", seriesRouter);
