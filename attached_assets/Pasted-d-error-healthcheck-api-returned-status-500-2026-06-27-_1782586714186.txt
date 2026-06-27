@@ -1,0 +1,100 @@
+d error=healthcheck /api returned status 500
+
+2026-06-27 21:56:24.28
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:26.05
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:27.00
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:28.07
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:28.37
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:28.39
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:29.59
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:29.61
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:31.36
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:32.55
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:34.09
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:35.26
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:36.39
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:36.62
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:38.16
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:38.91
+a12f682b
+System
+a port configuration was specified but the required port was never opened
+
+2026-06-27 21:56:38.91
+a12f682b
+System
+not all artifact ports opened within timeout detected=0 expected=[8080]
+
+2026-06-27 21:56:39.59
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+2026-06-27 21:56:40.27
+a12f682b
+System
+healthcheck failed error=healthcheck /api returned status 500
+
+Wrap
+
+Colors

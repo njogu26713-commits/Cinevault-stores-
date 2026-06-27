@@ -41,7 +41,7 @@ if (process.env.NODE_ENV === "production") {
   const fs = await import("fs");
   if (fs.existsSync(dashboardDist)) {
     app.use(express.static(dashboardDist));
-    app.get("*", (req, res, next) => {
+    app.get("/{*path}", (req, res, next) => {
       if (req.path.startsWith("/api")) return next();
       res.sendFile(path.join(dashboardDist, "index.html"));
     });
