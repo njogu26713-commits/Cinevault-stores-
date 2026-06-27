@@ -28,13 +28,13 @@ args = "Admin Dashboard"
 name = "API Server"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/api-server && PORT=3000 pnpm run dev"
-waitForPort = 3000
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "fuser -k 3000/tcp 2>/dev/null; sleep 1; cd artifacts/api-server && PORT=3000 pnpm run dev"
+waitForPort = 3000
 
 [[workflows.workflow]]
 name = "Admin Dashboard"
