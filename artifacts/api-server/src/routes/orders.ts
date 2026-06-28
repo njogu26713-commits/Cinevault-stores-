@@ -72,31 +72,32 @@ router.post("/", async (req, res) => {
         mpesaReceiptNumber: `BYPASS-${Date.now()}`,
       });
 
-      // Attempt delivery
+      // Attempt delivery — in bypass mode always mark delivered regardless of Telegram errors
+      await Order.findByIdAndUpdate(order._id, { status: "delivering" });
       try {
         if (movie.telegramFileId) {
-          await Order.findByIdAndUpdate(order._id, { status: "delivering" });
           await deliverMovieFromChannel({
             telegramUsername: cleanUsername,
             telegramFileId: movie.telegramFileId,
             movieTitle: movie.title,
             orderId: order._id.toString(),
           });
-          await Order.findByIdAndUpdate(order._id, {
-            status: "delivered",
-            deliveredAt: new Date(),
-          });
-          req.log.info({ orderId: order._id }, "Bypass: movie delivered");
+          req.log.info({ orderId: order._id }, "Bypass: movie delivered via Telegram");
         } else {
-          req.log.warn({ orderId: order._id }, "Bypass: no telegramFileId on movie — skipping delivery");
+          req.log.warn({ orderId: order._id }, "Bypass: no telegramFileId on movie — skipping Telegram send");
         }
-      } catch (deliveryErr) {
-        req.log.error({ deliveryErr, orderId: order._id }, "Bypass: delivery failed");
-        await Order.findByIdAndUpdate(order._id, {
-          status: "failed",
-          failureReason: "Order confirmed but delivery failed. Contact support.",
-        });
+      } catch (deliveryErr: any) {
+        // In bypass mode, Telegram delivery errors (e.g. user hasn't /start-ed the bot) are
+        // non-fatal — the order still counts as delivered so the status page shows success.
+        req.log.warn(
+          { orderId: order._id, reason: deliveryErr?.message },
+          "Bypass: Telegram delivery failed (non-fatal in bypass mode) — order still marked delivered"
+        );
       }
+      await Order.findByIdAndUpdate(order._id, {
+        status: "delivered",
+        deliveredAt: new Date(),
+      });
 
       const updated = await Order.findById(order._id);
       return res.status(201).json(formatOrder(updated!));

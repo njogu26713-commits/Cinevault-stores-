@@ -160,6 +160,15 @@ export function SeriesCheckoutModal({
                   />
                   {errors.telegramUsername && <p className="text-xs text-destructive">{errors.telegramUsername.message}</p>}
                   <p className="text-[10px] text-muted-foreground">Episodes will be sent to this Telegram account.</p>
+                  <a
+                    href={`https://t.me/${import.meta.env.VITE_BOT_USERNAME ?? 'CineVaultBot'}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-1.5 text-[11px] text-[#0088cc] hover:underline font-medium"
+                  >
+                    <Send size={11} />
+                    First time? Start the bot so we can message you →
+                  </a>
                 </div>
 
                 {/* Phone */}
