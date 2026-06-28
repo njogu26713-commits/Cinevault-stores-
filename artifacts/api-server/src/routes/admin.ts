@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 import { Movie } from "../models/Movie";
 import { Series } from "../models/Series";
 import { Order } from "../models/Order";
-import { getTelegramBot } from "../services/telegram";
+import { getTelegramBot, getChannelFileBuffer, removeFromChannelBuffer } from "../services/telegram";
 import { logger } from "../lib/logger";
 import { getSetting, saveSettings } from "../lib/settings-store";
 
@@ -516,6 +516,113 @@ router.post("/telegram/save-channel", async (req, res) => {
   logger.info({ channelId }, "Telegram channel ID saved");
 
   return res.json({ ok: true, telegramChannelId: String(channelId) });
+});
+
+// ── POST /admin/telegram/sync ─────────────────────────────────────────────────
+// Reads channel file buffer, fuzzy-matches against movie/series titles, auto-assigns file IDs
+router.post("/telegram/sync", async (_req, res) => {
+  const buffer = getChannelFileBuffer();
+
+  if (buffer.length === 0) {
+    return res.json({ matched: [], unmatched: [], bufferCount: 0 });
+  }
+
+  // Load all movies and series from DB
+  const [movies, allSeries] = await Promise.all([
+    Movie.find({}).lean(),
+    Series.find({}).lean(),
+  ]);
+
+  function normalize(s: string): string {
+    return s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function titleScore(title: string, text: string): number {
+    const normTitle = normalize(title);
+    const normText = normalize(text);
+    if (normText.includes(normTitle)) return 100;
+    // Check if all significant words in the title appear in the text
+    const words = normTitle.split(" ").filter((w) => w.length > 2);
+    if (words.length === 0) return 0;
+    const matched = words.filter((w) => normText.includes(w));
+    return Math.round((matched.length / words.length) * 80);
+  }
+
+  // Parse S01E01 / S1E1 patterns
+  function parseEpisode(text: string): { season: number; episode: number } | null {
+    const m = text.match(/[Ss](\d{1,2})[Ee](\d{1,2})/);
+    if (m) return { season: Number(m[1]), episode: Number(m[2]) };
+    return null;
+  }
+
+  const matched: Array<{ type: string; title: string; fileId: string; episodeInfo?: string }> = [];
+  const unmatched: Array<{ fileName: string; caption: string; fileId: string }> = [];
+
+  for (const file of buffer) {
+    const searchText = `${file.caption} ${file.fileName}`;
+    let bestScore = 0;
+    let bestMatch: { kind: "movie" | "series"; id: string; title: string; ep?: { sIdx: number; eIdx: number; label: string } } | null = null;
+
+    // Score movies
+    for (const movie of movies) {
+      const score = titleScore(movie.title, searchText);
+      if (score > bestScore && score >= 60) {
+        bestScore = score;
+        bestMatch = { kind: "movie", id: String(movie._id), title: movie.title };
+      }
+    }
+
+    // Score series (and try to match specific episode)
+    for (const s of allSeries) {
+      const score = titleScore(s.title, searchText);
+      if (score >= 60 && score >= bestScore) {
+        const ep = parseEpisode(searchText);
+        let epMatch: { sIdx: number; eIdx: number; label: string } | undefined;
+        if (ep) {
+          const sIdx = s.seasons.findIndex((se: any) => se.seasonNumber === ep.season);
+          if (sIdx !== -1) {
+            const eIdx = s.seasons[sIdx].episodes.findIndex((e: any) => e.episodeNumber === ep.episode);
+            if (eIdx !== -1) {
+              epMatch = { sIdx, eIdx, label: `S${String(ep.season).padStart(2,"0")}E${String(ep.episode).padStart(2,"0")}` };
+            }
+          }
+        }
+        if (score > bestScore || (score === bestScore && epMatch)) {
+          bestScore = score;
+          bestMatch = { kind: "series", id: String(s._id), title: s.title, ep: epMatch };
+        }
+      }
+    }
+
+    if (bestMatch) {
+      try {
+        if (bestMatch.kind === "movie") {
+          await Movie.findByIdAndUpdate(bestMatch.id, { telegramFileId: file.fileId });
+          matched.push({ type: "movie", title: bestMatch.title, fileId: file.fileId });
+        } else {
+          const series = await Series.findById(bestMatch.id);
+          if (series && bestMatch.ep) {
+            series.seasons[bestMatch.ep.sIdx].episodes[bestMatch.ep.eIdx].telegramFileId = file.fileId;
+            await series.save();
+            matched.push({ type: "episode", title: bestMatch.title, fileId: file.fileId, episodeInfo: bestMatch.ep.label });
+          } else if (series && !bestMatch.ep) {
+            // Matched series but couldn't parse episode — mark as unmatched
+            unmatched.push({ fileName: file.fileName, caption: file.caption || `${bestMatch.title} (no episode info)`, fileId: file.fileId });
+            continue;
+          }
+        }
+        removeFromChannelBuffer(file.fileId);
+        logger.info({ fileId: file.fileId, title: bestMatch.title }, "Telegram sync: file auto-assigned");
+      } catch (err) {
+        logger.error({ err, fileId: file.fileId }, "Telegram sync: failed to assign file");
+        unmatched.push({ fileName: file.fileName, caption: file.caption, fileId: file.fileId });
+      }
+    } else {
+      unmatched.push({ fileName: file.fileName, caption: file.caption, fileId: file.fileId });
+    }
+  }
+
+  return res.json({ matched, unmatched, bufferCount: buffer.length });
 });
 
 // ── POST /admin/ai/generate-description ──────────────────────────────────────
