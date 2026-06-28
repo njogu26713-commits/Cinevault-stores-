@@ -80,7 +80,7 @@ const SEED_MOVIES = [
     posterUrl: "https://image.tmdb.org/t/p/w500/2bXbqYdUdNVa8VIWXVfclP2ICtT.jpg",
     bannerUrl: "https://image.tmdb.org/t/p/original/5E0e6eMW4cGQMHdVRoHVxKz0Vl0.jpg",
     youtubeTrailerId: "7TavVZMewpY",
-    genre: ["Animation", "Adventure", "Drama"],
+    genre: ["Cartoon", "Animation", "Adventure", "Drama"],
     duration: "1h 28m",
     quality: "1080p" as const,
     fileSize: "5.8 GB",
@@ -88,6 +88,144 @@ const SEED_MOVIES = [
     featured: false,
     rating: 8.5,
     year: 1994,
+    telegramFileId: null,
+  },
+  // ── Cartoons ──────────────────────────────────────────────
+  {
+    title: "The Incredibles",
+    description:
+      "A family of undercover superheroes, while trying to live the quiet suburban life, are forced into action to save the world.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/2LqaLgk4Z226KkgPJuiOQ58ShKD.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/maGWHhDZ0Lh9JkYn9Ky4oLVSJQi.jpg",
+    youtubeTrailerId: "CwmQpN-iCF4",
+    genre: ["Cartoon", "Animation", "Action", "Adventure"],
+    duration: "1h 55m",
+    quality: "1080p" as const,
+    fileSize: "6.2 GB",
+    price: 250,
+    featured: false,
+    rating: 8.0,
+    year: 2004,
+    telegramFileId: null,
+  },
+  {
+    title: "Shrek",
+    description:
+      "A mean lord exiles fairytale creatures to the swamp of a grumpy ogre, who must go on a quest and rescue a princess for the lord in order to get his land back.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/iB64vpL3dIObOtMZgX3RqdVdQDc.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/4FMnHNKVZx0CKKUUUkZxEexkKHy.jpg",
+    youtubeTrailerId: "W37DlG1i61s",
+    genre: ["Cartoon", "Animation", "Comedy", "Adventure"],
+    duration: "1h 30m",
+    quality: "1080p" as const,
+    fileSize: "5.1 GB",
+    price: 200,
+    featured: false,
+    rating: 7.9,
+    year: 2001,
+    telegramFileId: null,
+  },
+  {
+    title: "Toy Story",
+    description:
+      "A cowboy doll is profoundly threatened and jealous when a new spaceman figure supplants him as top toy in a boy's room.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/dji4Fm0gCDVb9DQQMRvAI8YNnTz.jpg",
+    youtubeTrailerId: "KYz2wyBy3kc",
+    genre: ["Cartoon", "Animation", "Comedy", "Family"],
+    duration: "1h 21m",
+    quality: "1080p" as const,
+    fileSize: "4.3 GB",
+    price: 200,
+    featured: false,
+    rating: 8.3,
+    year: 1995,
+    telegramFileId: null,
+  },
+  {
+    title: "Kung Fu Panda",
+    description:
+      "A lazy, irreverent slacker panda must somehow become the legendary Dragon Warrior and fulfill his destiny to defeat a treacherous snow leopard.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/wWt4ockm2bCkPQN4RBPGjQEELPu.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/lWGHMbhiJhv2tJEFEIJDEIbm0BN.jpg",
+    youtubeTrailerId: "6qzVh_QBUNU",
+    genre: ["Cartoon", "Animation", "Action", "Comedy"],
+    duration: "1h 32m",
+    quality: "1080p" as const,
+    fileSize: "5.5 GB",
+    price: 220,
+    featured: true,
+    rating: 7.6,
+    year: 2008,
+    telegramFileId: null,
+  },
+  // ── Anime ─────────────────────────────────────────────────
+  {
+    title: "Spirited Away",
+    description:
+      "During her family's move to the suburbs, a sullen 10-year-old girl wanders into a world ruled by gods, witches, and spirits.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/bSXfU4dwZyBA1vMmXvejdRXBvuF.jpg",
+    youtubeTrailerId: "ByXuk9QqQkk",
+    genre: ["Anime", "Animation", "Adventure", "Fantasy"],
+    duration: "2h 5m",
+    quality: "1080p" as const,
+    fileSize: "7.8 GB",
+    price: 300,
+    featured: true,
+    rating: 9.3,
+    year: 2001,
+    telegramFileId: null,
+  },
+  {
+    title: "Your Name",
+    description:
+      "Two strangers find themselves linked in a bizarre way. When a connection forms, will distance be the only thing to keep them apart?",
+    posterUrl: "https://image.tmdb.org/t/p/w500/q719jXXEzOoYaps6babgKnONONX.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/mMtR9KHNjuuUlBJoJrjCPDxVnKO.jpg",
+    youtubeTrailerId: "xU47nhruN-Q",
+    genre: ["Anime", "Animation", "Drama", "Romance"],
+    duration: "1h 46m",
+    quality: "1080p" as const,
+    fileSize: "6.4 GB",
+    price: 280,
+    featured: true,
+    rating: 8.4,
+    year: 2016,
+    telegramFileId: null,
+  },
+  {
+    title: "Demon Slayer: Mugen Train",
+    description:
+      "Tanjiro and friends embark on a new mission aboard the Mugen Train, where over forty passengers have mysteriously vanished.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/h8Rb9gBr48ODIwYUttZNYeMWeUU.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/7bWxAsNYSPL5WKd8PqFHbpMjJFh.jpg",
+    youtubeTrailerId: "mxdMKU2MLEU",
+    genre: ["Anime", "Animation", "Action", "Fantasy"],
+    duration: "1h 57m",
+    quality: "1080p" as const,
+    fileSize: "7.2 GB",
+    price: 320,
+    featured: false,
+    rating: 8.2,
+    year: 2020,
+    telegramFileId: null,
+  },
+  {
+    title: "Princess Mononoke",
+    description:
+      "On a journey to find the cure for a Tatarigami's curse, Ashitaka finds himself in the middle of a war between the forest gods and Tatara, a mining colony.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/4ftMWhAuHkF6Saic6WFY1pstTnC.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/kABMxOPXg2h0TKz1OvwGsHgepOI.jpg",
+    youtubeTrailerId: "4OiMAfol4kk",
+    genre: ["Anime", "Animation", "Adventure", "Fantasy"],
+    duration: "2h 14m",
+    quality: "1080p" as const,
+    fileSize: "8.1 GB",
+    price: 300,
+    featured: false,
+    rating: 8.4,
+    year: 1997,
     telegramFileId: null,
   },
   {
@@ -380,26 +518,158 @@ const SEED_SERIES = [
       { seasonNumber: 2, episodes: makeEpisodes(8, 60) },
     ],
   },
+  // ── Cartoon Series ────────────────────────────────────────
+  {
+    title: "Avatar: The Last Airbender",
+    description:
+      "In a world where people can manipulate the elements, a young boy known as the Avatar must master all four elements to bring peace to the warring nations.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/cHMq6PH0T5MF8MbFRHX7LuSIVv4.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/oU6mRhXcGGHRSnSm4V4Vc5KTVSZ.jpg",
+    youtubeTrailerId: "d1Zxt28ff-E",
+    genre: ["Cartoon", "Animation", "Action", "Adventure", "Fantasy"],
+    quality: "1080p" as const,
+    rating: 9.3,
+    year: 2005,
+    status: "Completed" as const,
+    featured: true,
+    pricePerSeason: 300,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(20, 23) },
+      { seasonNumber: 2, episodes: makeEpisodes(20, 23) },
+      { seasonNumber: 3, episodes: makeEpisodes(21, 23) },
+    ],
+  },
+  {
+    title: "The Simpsons",
+    description:
+      "The satiric adventures of a working-class family in the misfit city of Springfield.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/nogV4th2P5QWYvQIMiWHj4CFLU9.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/yz1yKxRH00P2VhKFcvxNRMnxhIT.jpg",
+    youtubeTrailerId: "Q62lN-bJp0s",
+    genre: ["Cartoon", "Animation", "Comedy"],
+    quality: "1080p" as const,
+    rating: 8.7,
+    year: 1989,
+    status: "Ongoing" as const,
+    featured: false,
+    pricePerSeason: 200,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(13, 22) },
+      { seasonNumber: 2, episodes: makeEpisodes(22, 22) },
+      { seasonNumber: 3, episodes: makeEpisodes(24, 22) },
+    ],
+  },
+  // ── Anime Series ──────────────────────────────────────────
+  {
+    title: "Attack on Titan",
+    description:
+      "After his hometown is destroyed and his mother is killed, young Eren Yeager vows to cleanse the earth of the giant humanoid Titans.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/sHa9RPNgRYV0CjJpFXMhGY1gPpY.jpg",
+    youtubeTrailerId: "MGRm4IzK1SQ",
+    genre: ["Anime", "Animation", "Action", "Drama", "Fantasy"],
+    quality: "1080p" as const,
+    rating: 9.0,
+    year: 2013,
+    status: "Completed" as const,
+    featured: true,
+    pricePerSeason: 350,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(25, 24) },
+      { seasonNumber: 2, episodes: makeEpisodes(12, 24) },
+      { seasonNumber: 3, episodes: makeEpisodes(22, 24) },
+      { seasonNumber: 4, episodes: makeEpisodes(28, 24) },
+    ],
+  },
+  {
+    title: "Demon Slayer",
+    description:
+      "A young boy becomes a demon slayer after his family is slaughtered and his sister is turned into a demon.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/xUfRZu2mi8jH6SzQEJGP6tjBuYj.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/mOHMbYy1gAkLNbFX8SDiVoiHpYs.jpg",
+    youtubeTrailerId: "VQGCKyvzIM4",
+    genre: ["Anime", "Animation", "Action", "Fantasy"],
+    quality: "1080p" as const,
+    rating: 8.7,
+    year: 2019,
+    status: "Ongoing" as const,
+    featured: true,
+    pricePerSeason: 320,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(26, 24) },
+      { seasonNumber: 2, episodes: makeEpisodes(18, 24) },
+      { seasonNumber: 3, episodes: makeEpisodes(11, 24) },
+    ],
+  },
+  {
+    title: "One Piece",
+    description:
+      "Follows the adventures of Monkey D. Luffy and his crew in search of the world's ultimate treasure, the One Piece, to become the next King of the Pirates.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/cMD9Ygz11zjJzAovURpO75Qg7rT.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/2rmK7mnchw9Xr3XdiTFSxTTLXqv.jpg",
+    youtubeTrailerId: "S8_YwFLCh4U",
+    genre: ["Anime", "Animation", "Action", "Adventure", "Comedy"],
+    quality: "1080p" as const,
+    rating: 8.9,
+    year: 1999,
+    status: "Ongoing" as const,
+    featured: false,
+    pricePerSeason: 280,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(61, 24) },
+      { seasonNumber: 2, episodes: makeEpisodes(16, 24) },
+      { seasonNumber: 3, episodes: makeEpisodes(13, 24) },
+    ],
+  },
+  {
+    title: "Naruto",
+    description:
+      "A young ninja who seeks recognition from his peers and dreams of becoming the Hokage, the leader of his village.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/xppeysfvDKVx775MFuH8Z9Ex9bz.jpg",
+    bannerUrl: "https://image.tmdb.org/t/p/original/vauCEnR7ScXG1WRY4yHFlQqJiSD.jpg",
+    youtubeTrailerId: "0AEHMlIBBlU",
+    genre: ["Anime", "Animation", "Action", "Adventure"],
+    quality: "720p" as const,
+    rating: 8.3,
+    year: 2002,
+    status: "Completed" as const,
+    featured: false,
+    pricePerSeason: 250,
+    seasons: [
+      { seasonNumber: 1, episodes: makeEpisodes(43, 23) },
+      { seasonNumber: 2, episodes: makeEpisodes(30, 23) },
+      { seasonNumber: 3, episodes: makeEpisodes(41, 23) },
+    ],
+  },
 ];
 
-// POST /seed — seed sample movies and series (only if collections are empty)
+// POST /seed — upsert all seed data by title (safe to call repeatedly)
 router.post("/", async (req, res) => {
   try {
-    const [movieCount, seriesCount] = await Promise.all([
-      Movie.countDocuments(),
-      Series.countDocuments(),
+    const movieOps = SEED_MOVIES.map((m) => ({
+      updateOne: {
+        filter: { title: m.title },
+        update: { $setOnInsert: m },
+        upsert: true,
+      },
+    }));
+    const seriesOps = SEED_SERIES.map((s) => ({
+      updateOne: {
+        filter: { title: s.title },
+        update: { $setOnInsert: s },
+        upsert: true,
+      },
+    }));
+
+    const [movieResult, seriesResult] = await Promise.all([
+      Movie.bulkWrite(movieOps),
+      Series.bulkWrite(seriesOps),
     ]);
 
-    const ops: Promise<any>[] = [];
-    if (movieCount === 0) ops.push(Movie.insertMany(SEED_MOVIES));
-    if (seriesCount === 0) ops.push(Series.insertMany(SEED_SERIES));
-
-    await Promise.all(ops);
-
     return res.json({
-      message: movieCount === 0 || seriesCount === 0 ? "Seeded successfully" : "Database already seeded",
-      movies: movieCount === 0 ? SEED_MOVIES.length : movieCount,
-      series: seriesCount === 0 ? SEED_SERIES.length : seriesCount,
+      message: "Seeded successfully",
+      moviesInserted: movieResult.upsertedCount,
+      seriesInserted: seriesResult.upsertedCount,
     });
   } catch (err) {
     req.log.error({ err }, "Seed failed");
