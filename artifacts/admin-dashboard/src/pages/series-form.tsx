@@ -231,6 +231,17 @@ export function SeriesForm() {
     const target = pendingUploadRef.current;
     if (!file || !target || !id) return;
 
+    const MAX_MB = 50;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      toast({
+        title: `File too large (${(file.size / 1024 / 1024).toFixed(0)} MB)`,
+        description: `Telegram Bot API only supports files up to ${MAX_MB} MB. Upload to your Telegram channel via Desktop app, then paste the File ID manually.`,
+        variant: "destructive",
+      });
+      if (episodeFileInputRef.current) episodeFileInputRef.current.value = "";
+      return;
+    }
+
     const { sIdx, eIdx } = target;
     setUploadingEpisode({ sIdx, eIdx });
     setUploadProgress(0);
@@ -253,12 +264,18 @@ export function SeriesForm() {
         try {
           const data = JSON.parse(xhr.responseText);
           form.setValue(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`, data.telegramFileId);
-          toast({ title: "Episode uploaded successfully" });
+          toast({ title: "Episode uploaded to Telegram successfully" });
         } catch {
           toast({ title: "Upload failed — bad response", variant: "destructive" });
         }
       } else {
-        toast({ title: "Episode upload failed", variant: "destructive" });
+        let errorMsg = "Episode upload failed";
+        try {
+          const errData = JSON.parse(xhr.responseText);
+          if (errData.error) errorMsg = errData.error;
+          if (errData.details) errorMsg += `: ${errData.details}`;
+        } catch {}
+        toast({ title: errorMsg, variant: "destructive" });
       }
       if (episodeFileInputRef.current) episodeFileInputRef.current.value = "";
     });

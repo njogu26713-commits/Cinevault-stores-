@@ -206,6 +206,17 @@ export function MovieForm() {
     const file = e.target.files?.[0];
     if (!file || !id) return;
 
+    const MAX_MB = 50;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      toast({
+        title: `File too large (${(file.size / 1024 / 1024).toFixed(0)} MB)`,
+        description: `Telegram Bot API only supports files up to ${MAX_MB} MB. Upload the movie to your Telegram channel via the Desktop app instead, then paste the File ID below.`,
+        variant: "destructive",
+      });
+      e.target.value = "";
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -227,19 +238,27 @@ export function MovieForm() {
         try {
           const data = JSON.parse(xhr.responseText);
           setTelegramFileId(data.telegramFileId);
-          toast({ title: "File uploaded successfully" });
+          toast({ title: "File uploaded to Telegram successfully" });
           queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(id) });
         } catch {
           toast({ title: "Upload failed — bad response", variant: "destructive" });
         }
       } else {
-        toast({ title: "Upload failed", variant: "destructive" });
+        let errorMsg = "Upload failed";
+        try {
+          const errData = JSON.parse(xhr.responseText);
+          if (errData.error) errorMsg = errData.error;
+          if (errData.details) errorMsg += `: ${errData.details}`;
+        } catch {}
+        toast({ title: errorMsg, variant: "destructive" });
       }
+      e.target.value = "";
     });
 
     xhr.addEventListener("error", () => {
       setIsUploading(false);
       toast({ title: "Upload failed — network error", variant: "destructive" });
+      e.target.value = "";
     });
 
     xhr.open("POST", `/api/admin/movies/${id}/upload-file`);
