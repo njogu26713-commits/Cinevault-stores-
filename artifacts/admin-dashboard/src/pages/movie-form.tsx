@@ -266,8 +266,17 @@ export function MovieForm() {
                 sseRef.current = null;
               } else if (progress.phase === "error") {
                 setUploadPhase("error");
-                setUploadError(progress.error ?? "Upload failed");
-                toast({ title: progress.error ?? "Upload failed", variant: "destructive" });
+                const rawErr = progress.error ?? "Upload failed";
+                const isSessionExpired = rawErr.includes("SESSION_EXPIRED");
+                const displayErr = isSessionExpired
+                  ? "Telegram session expired — reconnect in Settings → Telegram Connect"
+                  : rawErr;
+                setUploadError(displayErr);
+                toast({
+                  title: isSessionExpired ? "Telegram session expired" : "Upload failed",
+                  description: isSessionExpired ? "Go to Settings → Telegram Connect and sign in again." : rawErr,
+                  variant: "destructive",
+                });
                 sse.close();
                 sseRef.current = null;
               }

@@ -392,13 +392,36 @@ export async function uploadFileToChannel(
       lastErr = err instanceof Error ? err : new Error(String(err));
       logger.error({ err, jobId, attempt }, "GramJS: Upload attempt failed");
 
-      const msg = (err.message ?? err.errorMessage ?? "").toLowerCase();
+      const msg = (err.message ?? err.errorMessage ?? "");
+
+      // Auth key revoked — session is dead. Clear it immediately and don't retry.
+      if (
+        msg.includes("AUTH_KEY_UNREGISTERED") ||
+        msg.includes("AUTH_KEY_INVALID") ||
+        msg.includes("AUTH_KEY_DUPLICATED") ||
+        (err.code === 401)
+      ) {
+        logger.warn({ jobId }, "GramJS: Session revoked by Telegram — clearing saved session");
+        try {
+          if (_client) await _client.disconnect().catch(() => {});
+        } catch {}
+        _client = null;
+        _authState = "disconnected";
+        _lastError = "SESSION_EXPIRED";
+        saveSettings({ telegramSession: "" });
+        lastErr = new Error(
+          "SESSION_EXPIRED: Your Telegram session was revoked. Go to Admin → Telegram Connect and sign in again."
+        );
+        break; // non-retryable
+      }
+
+      const msgLower = msg.toLowerCase();
       const isRetryable =
-        msg.includes("timeout") ||
-        msg.includes("network") ||
-        msg.includes("connection") ||
-        msg.includes("flood") ||
-        msg.includes("reset");
+        msgLower.includes("timeout") ||
+        msgLower.includes("network") ||
+        msgLower.includes("connection") ||
+        msgLower.includes("flood") ||
+        msgLower.includes("reset");
 
       if (!isRetryable || attempt >= MAX_RETRIES - 1) break;
     }
