@@ -1,5 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
 import { logger } from "../lib/logger";
+import { resolveChannelPostFileId } from "./gramjs";
 
 let bot: TelegramBot | null = null;
 
@@ -116,6 +117,9 @@ export function startBotPolling(): void {
       chatId: msg.chat.id,
       timestamp: msg.date * 1000,
     });
+
+    // Notify any pending GramJS upload waiting for this file_id
+    resolveChannelPostFileId(msg.message_id, fileId);
 
     logger.info(
       { fileId, fileName, caption, chatId: msg.chat.id },

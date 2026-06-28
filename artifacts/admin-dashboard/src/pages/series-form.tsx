@@ -91,8 +91,11 @@ export function SeriesForm() {
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(new Set([0]));
   const [uploadingEpisode, setUploadingEpisode] = useState<{ sIdx: number; eIdx: number } | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "to_server" | "to_telegram" | "complete" | "error">("idle");
+  const [uploadSpeed, setUploadSpeed] = useState(0);
   const episodeFileInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadRef = useRef<{ sIdx: number; eIdx: number } | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
 
   const form = useForm<SeriesFormValues>({
     resolver: zodResolver(seriesSchema),
@@ -230,27 +233,24 @@ export function SeriesForm() {
     const file = e.target.files?.[0];
     const target = pendingUploadRef.current;
     if (!file || !target || !id) return;
+    if (episodeFileInputRef.current) episodeFileInputRef.current.value = "";
 
-    const MAX_MB = 50;
-    if (file.size > MAX_MB * 1024 * 1024) {
-      toast({
-        title: `File too large (${(file.size / 1024 / 1024).toFixed(0)} MB)`,
-        description: `Telegram Bot API only supports files up to ${MAX_MB} MB. Upload to your Telegram channel via Desktop app, then paste the File ID manually.`,
-        variant: "destructive",
-      });
-      if (episodeFileInputRef.current) episodeFileInputRef.current.value = "";
-      return;
-    }
+    // Cancel existing SSE
+    sseRef.current?.close();
+    sseRef.current = null;
 
     const { sIdx, eIdx } = target;
     setUploadingEpisode({ sIdx, eIdx });
     setUploadProgress(0);
+    setUploadPhase("to_server");
+    setUploadSpeed(0);
 
     const formData = new FormData();
     formData.append("file", file);
 
     const xhr = new XMLHttpRequest();
 
+    // Phase 1: client → server
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
         setUploadProgress(Math.round((event.loaded / event.total) * 100));
@@ -258,35 +258,82 @@ export function SeriesForm() {
     });
 
     xhr.addEventListener("load", () => {
-      setUploadingEpisode(null);
       if (xhr.status >= 200 && xhr.status < 300) {
-        setUploadProgress(100);
         try {
-          const data = JSON.parse(xhr.responseText);
-          form.setValue(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`, data.telegramFileId);
-          toast({ title: "Episode uploaded to Telegram successfully" });
+          const { jobId } = JSON.parse(xhr.responseText);
+
+          // Phase 2: server → Telegram via SSE
+          setUploadPhase("to_telegram");
+          setUploadProgress(0);
+
+          const sse = new EventSource(`/api/admin/mtproto/upload-progress/${jobId}`);
+          sseRef.current = sse;
+
+          sse.onmessage = (evt) => {
+            try {
+              const progress = JSON.parse(evt.data) as {
+                phase: string; percent?: number; speedMBps?: number;
+                fileId?: string; error?: string;
+              };
+
+              if (progress.phase === "uploading_to_telegram") {
+                setUploadProgress(progress.percent ?? 0);
+                setUploadSpeed(progress.speedMBps ?? 0);
+              } else if (progress.phase === "complete") {
+                setUploadPhase("complete");
+                setUploadProgress(100);
+                form.setValue(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`, progress.fileId || "");
+                toast({ title: "Episode uploaded to Telegram!" });
+                setUploadingEpisode(null);
+                sse.close();
+                sseRef.current = null;
+                // Reset phase after brief display
+                setTimeout(() => setUploadPhase("idle"), 3000);
+              } else if (progress.phase === "error") {
+                setUploadPhase("error");
+                toast({ title: progress.error ?? "Episode upload failed", variant: "destructive" });
+                setUploadingEpisode(null);
+                sse.close();
+                sseRef.current = null;
+                setTimeout(() => setUploadPhase("idle"), 3000);
+              }
+            } catch {}
+          };
+
+          sse.onerror = () => {
+            setUploadPhase("error");
+            setUploadingEpisode(null);
+            sse.close();
+            sseRef.current = null;
+            setTimeout(() => setUploadPhase("idle"), 3000);
+          };
         } catch {
+          setUploadPhase("error");
+          setUploadingEpisode(null);
           toast({ title: "Upload failed — bad response", variant: "destructive" });
+          setTimeout(() => setUploadPhase("idle"), 3000);
         }
       } else {
         let errorMsg = "Episode upload failed";
         try {
           const errData = JSON.parse(xhr.responseText);
           if (errData.error) errorMsg = errData.error;
-          if (errData.details) errorMsg += `: ${errData.details}`;
         } catch {}
+        setUploadPhase("error");
+        setUploadingEpisode(null);
         toast({ title: errorMsg, variant: "destructive" });
+        setTimeout(() => setUploadPhase("idle"), 3000);
       }
-      if (episodeFileInputRef.current) episodeFileInputRef.current.value = "";
     });
 
     xhr.addEventListener("error", () => {
+      setUploadPhase("error");
       setUploadingEpisode(null);
       toast({ title: "Upload failed — network error", variant: "destructive" });
-      if (episodeFileInputRef.current) episodeFileInputRef.current.value = "";
+      setTimeout(() => setUploadPhase("idle"), 3000);
     });
 
-    xhr.open("POST", `/api/admin/series/${id}/seasons/${sIdx}/episodes/${eIdx}/upload-file`);
+    xhr.open("POST", `/api/admin/mtproto/series/${id}/seasons/${sIdx}/episodes/${eIdx}/upload`);
     xhr.send(formData);
   };
 
@@ -551,6 +598,8 @@ export function SeriesForm() {
                   onRemove={() => removeSeason(sIdx)}
                   uploadingEpisode={uploadingEpisode}
                   uploadProgress={uploadProgress}
+                  uploadPhase={uploadPhase}
+                  uploadSpeed={uploadSpeed}
                   triggerEpisodeUpload={triggerEpisodeUpload}
                 />
               ))}
@@ -579,6 +628,8 @@ function SeasonEditor({
   onRemove,
   uploadingEpisode,
   uploadProgress,
+  uploadPhase,
+  uploadSpeed,
   triggerEpisodeUpload,
 }: {
   sIdx: number;
@@ -588,6 +639,8 @@ function SeasonEditor({
   onRemove: () => void;
   uploadingEpisode: { sIdx: number; eIdx: number } | null;
   uploadProgress: number;
+  uploadPhase: string;
+  uploadSpeed: number;
   triggerEpisodeUpload: (sIdx: number, eIdx: number) => void;
 }) {
   const { fields: episodeFields, append: appendEpisode, remove: removeEpisode } = useFieldArray({
@@ -684,6 +737,11 @@ function SeasonEditor({
                 {(() => {
                   const fileId = form.watch(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`);
                   const isThisUploading = uploadingEpisode?.sIdx === sIdx && uploadingEpisode?.eIdx === eIdx;
+                  const phaseLabel =
+                    uploadPhase === "to_server" ? `Server ${uploadProgress}%` :
+                    uploadPhase === "to_telegram" ? `TG ${uploadProgress}%` :
+                    uploadPhase === "complete" ? "Done!" :
+                    "Upload";
                   return (
                     <div className="space-y-1">
                       {fileId ? (
@@ -701,10 +759,17 @@ function SeasonEditor({
                           onClick={() => triggerEpisodeUpload(sIdx, eIdx)}
                         >
                           <Upload className="w-3 h-3 mr-1" />
-                          {isThisUploading ? `${uploadProgress}%` : "Upload"}
+                          {isThisUploading ? phaseLabel : "Upload"}
                         </Button>
                       )}
-                      {isThisUploading && <Progress value={uploadProgress} className="h-1" />}
+                      {isThisUploading && (
+                        <div className="space-y-0.5">
+                          <Progress value={uploadProgress} className="h-1" />
+                          {uploadPhase === "to_telegram" && uploadSpeed > 0 && (
+                            <p className="text-[10px] text-muted-foreground text-right">{uploadSpeed} MB/s</p>
+                          )}
+                        </div>
+                      )}
                       {fileId && (
                         <Button
                           type="button"

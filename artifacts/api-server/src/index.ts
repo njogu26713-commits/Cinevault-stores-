@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { connectMongoDB } from "./lib/mongodb";
 import { startBotPolling } from "./services/telegram";
+import { initializeGramJS } from "./services/gramjs";
 
 const rawPort = process.env["PORT"] ?? "8080";
 
@@ -23,6 +24,13 @@ async function start() {
     startBotPolling();
   } catch (err) {
     logger.warn({ err }, "Telegram bot polling failed to start — delivery and file ID features may not work");
+  }
+
+  // Initialize GramJS MTProto client (if session is saved)
+  try {
+    await initializeGramJS();
+  } catch (err) {
+    logger.warn({ err }, "GramJS MTProto init failed — connect via admin panel");
   }
 
   app.listen(port, (err) => {

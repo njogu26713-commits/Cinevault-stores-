@@ -5,6 +5,7 @@ export interface IEpisode {
   title: string;
   duration: string;
   telegramFileId?: string | null;
+  telegramMessageId?: number | null;
 }
 
 export interface ISeason {
@@ -36,6 +37,7 @@ const EpisodeSchema = new Schema<IEpisode>(
     title: { type: String, required: true },
     duration: { type: String, required: true },
     telegramFileId: { type: String, default: null },
+    telegramMessageId: { type: Number, default: null },
   },
   { _id: false }
 );

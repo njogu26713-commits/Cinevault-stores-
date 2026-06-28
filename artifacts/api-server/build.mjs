@@ -27,6 +27,10 @@ async function buildAll() {
     // Examples of unbundleable packages:
     // - uses native modules and loads them dynamically (e.g. sharp)
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
+    alias: {
+      "bufferutil": path.resolve(artifactDir, "src/stubs/bufferutil.cjs"),
+      "utf-8-validate": path.resolve(artifactDir, "src/stubs/utf-8-validate.cjs"),
+    },
     external: [
       "*.node",
       "sharp",

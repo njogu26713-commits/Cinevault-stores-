@@ -121,9 +121,13 @@ export function MovieForm() {
   }, [id, form]);
 
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "to_server" | "to_telegram" | "complete" | "error">("idle");
+  const [uploadSpeed, setUploadSpeed] = useState(0);
+  const [uploadFileSizeMB, setUploadFileSizeMB] = useState("");
+  const [uploadError, setUploadError] = useState("");
   const [telegramFileId, setTelegramFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sseRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     if (movie?.telegramFileId) {
@@ -205,26 +209,24 @@ export function MovieForm() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !id) return;
+    e.target.value = "";
 
-    const MAX_MB = 50;
-    if (file.size > MAX_MB * 1024 * 1024) {
-      toast({
-        title: `File too large (${(file.size / 1024 / 1024).toFixed(0)} MB)`,
-        description: `Telegram Bot API only supports files up to ${MAX_MB} MB. Upload the movie to your Telegram channel via the Desktop app instead, then paste the File ID below.`,
-        variant: "destructive",
-      });
-      e.target.value = "";
-      return;
-    }
+    // Close any existing SSE connection
+    sseRef.current?.close();
+    sseRef.current = null;
 
-    setIsUploading(true);
+    setUploadPhase("to_server");
     setUploadProgress(0);
+    setUploadError("");
+    setUploadSpeed(0);
+    setUploadFileSizeMB((file.size / 1024 / 1024).toFixed(1));
 
     const formData = new FormData();
     formData.append("file", file);
 
     const xhr = new XMLHttpRequest();
 
+    // Phase 1: client → server progress
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
         setUploadProgress(Math.round((event.loaded / event.total) * 100));
@@ -232,15 +234,55 @@ export function MovieForm() {
     });
 
     xhr.addEventListener("load", () => {
-      setIsUploading(false);
       if (xhr.status >= 200 && xhr.status < 300) {
-        setUploadProgress(100);
         try {
-          const data = JSON.parse(xhr.responseText);
-          setTelegramFileId(data.telegramFileId);
-          toast({ title: "File uploaded to Telegram successfully" });
-          queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(id) });
+          const { jobId } = JSON.parse(xhr.responseText);
+
+          // Phase 2: server → Telegram progress via SSE
+          setUploadPhase("to_telegram");
+          setUploadProgress(0);
+
+          const sse = new EventSource(`/api/admin/mtproto/upload-progress/${jobId}`);
+          sseRef.current = sse;
+
+          sse.onmessage = (evt) => {
+            try {
+              const progress = JSON.parse(evt.data) as {
+                phase: string; percent?: number; speedMBps?: number;
+                fileSizeMB?: string; fileId?: string; error?: string;
+              };
+
+              if (progress.phase === "uploading_to_telegram") {
+                setUploadProgress(progress.percent ?? 0);
+                setUploadSpeed(progress.speedMBps ?? 0);
+                if (progress.fileSizeMB) setUploadFileSizeMB(progress.fileSizeMB);
+              } else if (progress.phase === "complete") {
+                setUploadPhase("complete");
+                setUploadProgress(100);
+                setTelegramFileId(progress.fileId || "");
+                toast({ title: "Uploaded to Telegram successfully!" });
+                queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(id) });
+                sse.close();
+                sseRef.current = null;
+              } else if (progress.phase === "error") {
+                setUploadPhase("error");
+                setUploadError(progress.error ?? "Upload failed");
+                toast({ title: progress.error ?? "Upload failed", variant: "destructive" });
+                sse.close();
+                sseRef.current = null;
+              }
+            } catch {}
+          };
+
+          sse.onerror = () => {
+            setUploadPhase("error");
+            setUploadError("Lost connection to server");
+            sse.close();
+            sseRef.current = null;
+          };
         } catch {
+          setUploadPhase("error");
+          setUploadError("Bad response from server");
           toast({ title: "Upload failed — bad response", variant: "destructive" });
         }
       } else {
@@ -248,20 +290,20 @@ export function MovieForm() {
         try {
           const errData = JSON.parse(xhr.responseText);
           if (errData.error) errorMsg = errData.error;
-          if (errData.details) errorMsg += `: ${errData.details}`;
         } catch {}
+        setUploadPhase("error");
+        setUploadError(errorMsg);
         toast({ title: errorMsg, variant: "destructive" });
       }
-      e.target.value = "";
     });
 
     xhr.addEventListener("error", () => {
-      setIsUploading(false);
+      setUploadPhase("error");
+      setUploadError("Network error");
       toast({ title: "Upload failed — network error", variant: "destructive" });
-      e.target.value = "";
     });
 
-    xhr.open("POST", `/api/admin/movies/${id}/upload-file`);
+    xhr.open("POST", `/api/admin/mtproto/movies/${id}/upload`);
     xhr.send(formData);
   };
 
@@ -544,14 +586,15 @@ export function MovieForm() {
             <Card>
               <CardHeader>
                 <CardTitle>Movie File</CardTitle>
-                <CardDescription>Link a Telegram file to this movie</CardDescription>
+                <CardDescription>Upload directly via MTProto — no file size limit (up to 4 GB)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* File status */}
                 {telegramFileId ? (
-                  <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-md border border-border">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <div className="flex items-center gap-3 p-3 bg-green-500/10 rounded-md border border-green-500/20">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">File linked</p>
+                      <p className="text-sm font-medium text-green-600">File linked</p>
                       <p className="text-xs text-muted-foreground font-mono truncate">{telegramFileId}</p>
                     </div>
                   </div>
@@ -602,45 +645,82 @@ export function MovieForm() {
                   </p>
                 </div>
 
-                {/* Small file direct upload */}
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Or upload directly (max 50 MB)</p>
+                {/* MTProto Direct Upload */}
+                <div className="space-y-3 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Upload via MTProto</p>
+                    <span className="text-xs text-muted-foreground">Supports up to 4 GB</span>
+                  </div>
+
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="video/*"
+                    accept="video/*,.mkv,.avi,.mp4,.mov,.wmv"
                     className="hidden"
                     onChange={handleFileUpload}
-                    disabled={isUploading}
+                    disabled={uploadPhase === "to_server" || uploadPhase === "to_telegram"}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled={isUploading}
-                    onClick={() => fileInputRef.current?.click()}
-                    data-testid="upload-file-btn"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    {isUploading ? "Uploading..." : "Select File to Upload"}
-                  </Button>
-                  {isUploading && (
-                    <div className="space-y-1">
-                      <Progress value={uploadProgress} className="h-2" />
-                      <p className="text-xs text-center text-muted-foreground">{uploadProgress}%</p>
+
+                  {/* Idle / error / complete state — show button */}
+                  {(uploadPhase === "idle" || uploadPhase === "complete" || uploadPhase === "error") && (
+                    <Button
+                      type="button"
+                      className="w-full"
+                      variant={telegramFileId ? "outline" : "default"}
+                      onClick={() => fileInputRef.current?.click()}
+                      data-testid="upload-file-btn"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {telegramFileId ? "Replace File" : "Select & Upload to Telegram"}
+                    </Button>
+                  )}
+
+                  {/* Error message */}
+                  {uploadPhase === "error" && uploadError && (
+                    <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
+                      <span>⚠ {uploadError}</span>
                     </div>
                   )}
-                </div>
 
-                {/* Instructions */}
-                <div className="rounded-md bg-muted/50 border border-border p-3 space-y-1.5 text-xs text-muted-foreground">
-                  <p className="font-semibold text-foreground">How to upload large movies (any size):</p>
-                  <ol className="list-decimal list-inside space-y-1">
-                    <li>Upload the movie file to your Telegram channel via <strong>Telegram Desktop</strong></li>
-                    <li>Open a private chat with <strong>your bot</strong> and forward the file to it</li>
-                    <li>The bot replies with the <strong>File ID</strong> — copy it</li>
-                    <li>Paste the File ID in the field above and click <strong>Save</strong></li>
-                  </ol>
+                  {/* Phase 1: client → server */}
+                  {uploadPhase === "to_server" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Uploading to server…</span>
+                        <span className="font-mono font-medium">{uploadProgress}%</span>
+                      </div>
+                      <Progress value={uploadProgress} className="h-2" />
+                      {uploadFileSizeMB && (
+                        <p className="text-xs text-muted-foreground text-right">{uploadFileSizeMB} MB total</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Phase 2: server → Telegram */}
+                  {uploadPhase === "to_telegram" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground flex items-center gap-1.5">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                          Sending to Telegram…
+                        </span>
+                        <span className="font-mono font-medium">{uploadProgress}%</span>
+                      </div>
+                      <Progress value={uploadProgress} className="h-2" />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        {uploadSpeed > 0 && <span>{uploadSpeed} MB/s</span>}
+                        {uploadFileSizeMB && <span>{uploadFileSizeMB} MB</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Success */}
+                  {uploadPhase === "complete" && (
+                    <div className="flex items-center gap-2 text-xs text-green-600 bg-green-500/10 border border-green-500/20 rounded-md px-3 py-2">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Upload complete! File linked to this movie.</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

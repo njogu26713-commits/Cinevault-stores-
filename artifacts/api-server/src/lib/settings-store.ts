@@ -10,6 +10,7 @@ interface PersistedSettings {
   mpesaShortcode?: string;
   mpesaCallbackUrl?: string;
   adminUsername?: string;
+  telegramSession?: string;
 }
 
 function readFile(): PersistedSettings {
@@ -42,7 +43,10 @@ export function saveSettings(updates: Partial<PersistedSettings>): void {
   writeFile(next);
   // Also update process.env so routes pick it up immediately without restart
   for (const [k, v] of Object.entries(updates)) {
-    if (v) process.env[envKey(k as keyof PersistedSettings)] = v;
+    if (v !== undefined) {
+      const envk = envKey(k as keyof PersistedSettings);
+      if (envk) process.env[envk] = v ?? "";
+    }
   }
 }
 
@@ -56,6 +60,7 @@ function envKey(key: keyof PersistedSettings): string {
     mpesaShortcode: "MPESA_SHORTCODE",
     mpesaCallbackUrl: "MPESA_CALLBACK_URL",
     adminUsername: "ADMIN_USERNAME",
+    telegramSession: "TELEGRAM_SESSION",
   };
   return map[key] ?? key;
 }
