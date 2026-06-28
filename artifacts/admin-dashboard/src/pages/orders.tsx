@@ -6,7 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search } from "lucide-react";
+import { Search, RefreshCw, CheckCircle, XCircle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getListAdminOrdersQueryKey } from "@workspace/api-client-react";
 
 export function Orders() {
   const [search, setSearch] = useState("");
@@ -14,6 +16,9 @@ export function Orders() {
   const [status, setStatus] = useState("all");
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [page, setPage] = useState(1);
+  const [retrying, setRetrying] = useState<Record<string, "loading" | "ok" | "err">>({});
+  const [retryMsg, setRetryMsg] = useState<Record<string, string>>({});
+  const queryClient = useQueryClient();
 
   // Debounce search
   useState(() => {
@@ -28,6 +33,22 @@ export function Orders() {
     page,
     limit: 15,
   });
+
+  const redeliver = async (orderId: string) => {
+    setRetrying(r => ({ ...r, [orderId]: "loading" }));
+    setRetryMsg(m => ({ ...m, [orderId]: "" }));
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/redeliver`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setRetrying(r => ({ ...r, [orderId]: "ok" }));
+      setRetryMsg(m => ({ ...m, [orderId]: "Delivered!" }));
+      queryClient.invalidateQueries({ queryKey: getListAdminOrdersQueryKey() });
+    } catch (err: any) {
+      setRetrying(r => ({ ...r, [orderId]: "err" }));
+      setRetryMsg(m => ({ ...m, [orderId]: err.message ?? "Error" }));
+    }
+  };
 
   const formatMoney = (amount: number) => `KES ${amount.toLocaleString()}`;
 
@@ -102,6 +123,7 @@ export function Orders() {
               <TableHead>Amount</TableHead>
               <TableHead>Payment</TableHead>
               <TableHead>Delivery</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -114,11 +136,12 @@ export function Orders() {
                   <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                 </TableRow>
               ))
             ) : !data?.orders.length ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   No orders found.
                 </TableCell>
               </TableRow>
@@ -162,6 +185,36 @@ export function Orders() {
                         </p>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {order.paymentStatus === "confirmed" && (
+                      <div className="space-y-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1.5"
+                          disabled={retrying[order.id] === "loading"}
+                          onClick={() => redeliver(order.id)}
+                        >
+                          {retrying[order.id] === "loading" ? (
+                            <RefreshCw size={11} className="animate-spin" />
+                          ) : retrying[order.id] === "ok" ? (
+                            <CheckCircle size={11} className="text-green-500" />
+                          ) : retrying[order.id] === "err" ? (
+                            <XCircle size={11} className="text-destructive" />
+                          ) : (
+                            <RefreshCw size={11} />
+                          )}
+                          Resend
+                        </Button>
+                        {retryMsg[order.id] && (
+                          <p className={`text-[10px] max-w-[120px] truncate ${retrying[order.id] === "ok" ? "text-green-500" : "text-destructive"}`}
+                             title={retryMsg[order.id]}>
+                            {retryMsg[order.id]}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

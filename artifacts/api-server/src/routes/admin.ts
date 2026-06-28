@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 import { Movie } from "../models/Movie";
 import { Series } from "../models/Series";
 import { Order } from "../models/Order";
-import { getTelegramBot, getChannelFileBuffer, removeFromChannelBuffer } from "../services/telegram";
+import { getTelegramBot, getChannelFileBuffer, removeFromChannelBuffer, deliverMovieFromChannel } from "../services/telegram";
 import { logger } from "../lib/logger";
 import { getSetting, saveSettings } from "../lib/settings-store";
 
@@ -856,6 +856,58 @@ router.get("/ai/recommendations", async (_req, res) => {
     });
   } catch (err) {
     logger.error({ err }, "Failed to get AI recommendations");
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /admin/orders/:id/redeliver ─────────────────────────────────────────
+router.post("/orders/:id/redeliver", async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid order ID" });
+    }
+
+    const order = await Order.findById(req.params.id).lean();
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    if (order.paymentStatus !== "confirmed") {
+      return res.status(400).json({ error: "Cannot redeliver — payment not confirmed" });
+    }
+
+    const movie = await Movie.findById(order.movieId).lean();
+    if (!movie) return res.status(404).json({ error: "Movie not found" });
+    if (!movie.telegramFileId) {
+      return res.status(400).json({ error: "Movie has no Telegram file ID — upload the file first" });
+    }
+
+    await Order.findByIdAndUpdate(order._id, { status: "delivering", failureReason: null });
+
+    try {
+      await deliverMovieFromChannel({
+        telegramUsername: order.telegramUsername,
+        telegramFileId: movie.telegramFileId,
+        movieTitle: order.movieTitle,
+        orderId: order._id.toString(),
+      });
+
+      await Order.findByIdAndUpdate(order._id, {
+        status: "delivered",
+        deliveredAt: new Date(),
+        failureReason: null,
+      });
+
+      logger.info({ orderId: order._id, telegramUsername: order.telegramUsername }, "Redelivery successful");
+      return res.json({ success: true, message: "Movie delivered successfully" });
+    } catch (deliveryErr: any) {
+      await Order.findByIdAndUpdate(order._id, {
+        status: "failed",
+        failureReason: deliveryErr?.message ?? "Delivery failed",
+      });
+      logger.error({ deliveryErr, orderId: order._id }, "Redelivery failed");
+      return res.status(502).json({ error: deliveryErr?.message ?? "Delivery failed" });
+    }
+  } catch (err) {
+    logger.error({ err }, "Failed to redeliver order");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
