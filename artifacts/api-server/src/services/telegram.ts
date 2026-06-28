@@ -46,7 +46,7 @@ export function getTelegramBot(): TelegramBot {
   return bot;
 }
 
-export function startBotPolling(): void {
+export async function startBotPolling(): Promise<void> {
   const token = process.env["TELEGRAM_BOT_TOKEN"];
   if (!token) {
     logger.warn("TELEGRAM_BOT_TOKEN not set — bot polling skipped");
@@ -54,8 +54,24 @@ export function startBotPolling(): void {
   }
 
   if (bot) {
-    try { bot.stopPolling(); } catch {}
+    try { await bot.stopPolling(); } catch {}
+    bot = null;
   }
+
+  // Force-drop any competing session (deployed instance, previous run, etc.)
+  // deleteWebhook with drop_pending_updates=true kills active long-poll sessions too
+  try {
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=true`
+    );
+    const json = await res.json() as { ok: boolean };
+    if (json.ok) logger.info("Telegram: cleared webhook/session before polling");
+  } catch (err) {
+    logger.warn({ err }, "Telegram: failed to clear webhook before polling (continuing)");
+  }
+
+  // Brief pause so Telegram fully closes the previous session
+  await new Promise((r) => setTimeout(r, 2000));
 
   bot = new TelegramBot(token, { polling: true });
 

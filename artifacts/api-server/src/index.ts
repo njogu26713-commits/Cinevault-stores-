@@ -21,7 +21,7 @@ async function start() {
 
   // Start Telegram bot polling for file ID extraction
   try {
-    startBotPolling();
+    await startBotPolling();
   } catch (err) {
     logger.warn({ err }, "Telegram bot polling failed to start — delivery and file ID features may not work");
   }
