@@ -532,6 +532,9 @@ export function SeriesForm() {
                   expanded={expandedSeasons.has(sIdx)}
                   onToggle={() => toggleSeason(sIdx)}
                   onRemove={() => removeSeason(sIdx)}
+                  uploadingEpisode={uploadingEpisode}
+                  uploadProgress={uploadProgress}
+                  triggerEpisodeUpload={triggerEpisodeUpload}
                 />
               ))}
             </CardContent>
@@ -557,12 +560,18 @@ function SeasonEditor({
   expanded,
   onToggle,
   onRemove,
+  uploadingEpisode,
+  uploadProgress,
+  triggerEpisodeUpload,
 }: {
   sIdx: number;
   form: any;
   expanded: boolean;
   onToggle: () => void;
   onRemove: () => void;
+  uploadingEpisode: { sIdx: number; eIdx: number } | null;
+  uploadProgress: number;
+  triggerEpisodeUpload: (sIdx: number, eIdx: number) => void;
 }) {
   const { fields: episodeFields, append: appendEpisode, remove: removeEpisode } = useFieldArray({
     control: form.control,
