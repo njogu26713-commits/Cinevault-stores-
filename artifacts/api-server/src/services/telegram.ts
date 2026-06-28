@@ -70,10 +70,31 @@ export async function startBotPolling(): Promise<void> {
     logger.warn({ err }, "Telegram: failed to clear webhook before polling (continuing)");
   }
 
-  // Brief pause so Telegram fully closes the previous session
-  await new Promise((r) => setTimeout(r, 2000));
+  // Retry with exponential backoff to handle 409 Conflict from Telegram
+  // (Telegram keeps old long-poll sessions alive for ~30s after process death)
+  const MAX_ATTEMPTS = 6;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const waitMs = attempt === 1 ? 2000 : Math.min(5000 * 2 ** (attempt - 2), 30000);
+    await new Promise((r) => setTimeout(r, waitMs));
 
-  bot = new TelegramBot(token, { polling: true });
+    bot = new TelegramBot(token, { polling: false });
+
+    try {
+      await (bot as any).startPolling();
+      logger.info(`Telegram bot polling started on attempt ${attempt}`);
+      break;
+    } catch (err: any) {
+      const is409 = err?.message?.includes("409") || err?.code === "ETELEGRAM";
+      if (is409 && attempt < MAX_ATTEMPTS) {
+        logger.warn(`Telegram 409 conflict on attempt ${attempt}, retrying in ${waitMs}ms…`);
+        try { await bot.stopPolling(); } catch {}
+        bot = null;
+        continue;
+      }
+      // Non-409 or exhausted retries — rethrow
+      throw err;
+    }
+  }
 
   // ── /start ─────────────────────────────────────────────────────────────────
   bot.onText(/\/start/, (msg) => {
@@ -143,8 +164,14 @@ export async function startBotPolling(): Promise<void> {
     );
   });
 
-  bot.on("polling_error", (err) => {
-    logger.error({ err }, "Telegram polling error");
+  bot.on("polling_error", (err: any) => {
+    const is409 = err?.message?.includes("409") || err?.code === "ETELEGRAM";
+    if (is409) {
+      // Telegram keeps old sessions alive briefly after restart — ignore until it clears
+      logger.warn("Telegram polling 409 conflict (old session still closing, will auto-resolve)");
+    } else {
+      logger.error({ err }, "Telegram polling error");
+    }
   });
 
   logger.info("Telegram bot polling started — channel_post events will auto-buffer for Sync");
