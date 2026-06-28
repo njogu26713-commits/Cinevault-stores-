@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { connectMongoDB } from "./lib/mongodb";
+import { startBotPolling } from "./services/telegram";
 
 const rawPort = process.env["PORT"] ?? "8080";
 
@@ -15,6 +16,13 @@ async function start() {
     await connectMongoDB();
   } catch (err) {
     logger.error({ err }, "Failed to connect to MongoDB — starting without DB (some routes will fail)");
+  }
+
+  // Start Telegram bot polling for file ID extraction
+  try {
+    startBotPolling();
+  } catch (err) {
+    logger.warn({ err }, "Telegram bot polling failed to start — delivery and file ID features may not work");
   }
 
   app.listen(port, (err) => {

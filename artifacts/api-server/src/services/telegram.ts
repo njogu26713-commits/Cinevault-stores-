@@ -15,6 +15,66 @@ export function getTelegramBot(): TelegramBot {
   return bot;
 }
 
+export function startBotPolling(): void {
+  const token = process.env["TELEGRAM_BOT_TOKEN"];
+  if (!token) {
+    logger.warn("TELEGRAM_BOT_TOKEN not set — bot polling skipped");
+    return;
+  }
+
+  if (bot) {
+    try { bot.stopPolling(); } catch {}
+  }
+
+  bot = new TelegramBot(token, { polling: true });
+
+  bot.onText(/\/start/, (msg) => {
+    bot!.sendMessage(
+      msg.chat.id,
+      "👋 Welcome to *CineVault Bot*!\n\nForward me any movie/episode file from your channel and I'll reply with its *File ID* so you can paste it into the admin dashboard.",
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  bot.onText(/\/getfileid/, (msg) => {
+    bot!.sendMessage(
+      msg.chat.id,
+      "📎 Forward or send me a file (video or document) and I'll reply with its *File ID*.",
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  bot.on("message", (msg) => {
+    const fileId =
+      msg.document?.file_id ||
+      msg.video?.file_id ||
+      msg.audio?.file_id ||
+      msg.animation?.file_id;
+
+    if (!fileId) return;
+
+    const fileName =
+      msg.document?.file_name ||
+      msg.video?.file_name ||
+      "file";
+
+    const fileSize = msg.document?.file_size || msg.video?.file_size;
+    const sizeMB = fileSize ? `${(fileSize / 1024 / 1024).toFixed(1)} MB` : "unknown size";
+
+    bot!.sendMessage(
+      msg.chat.id,
+      `✅ *File ID retrieved!*\n\n📁 *File:* ${fileName}\n📦 *Size:* ${sizeMB}\n\n\`\`\`\n${fileId}\n\`\`\`\n\nCopy the ID above and paste it into the *Telegram File ID* field in your admin dashboard.`,
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  bot.on("polling_error", (err) => {
+    logger.error({ err }, "Telegram polling error");
+  });
+
+  logger.info("Telegram bot polling started — forward files to get their File IDs");
+}
+
 export async function deliverMovieToUser(params: {
   telegramUsername: string;
   telegramFileId: string;
@@ -24,23 +84,16 @@ export async function deliverMovieToUser(params: {
   const { telegramUsername, telegramFileId, movieTitle, orderId } = params;
 
   const telegramBot = getTelegramBot();
-
-  // Resolve the chat ID from the username
-  // The user must have started a conversation with the bot first
   const username = telegramUsername.replace(/^@/, "");
 
   try {
-    // Send a notification message first
     const notificationMsg = `🎬 Your purchase is ready!\n\n*${movieTitle}*\n\nOrder ID: \`${orderId}\`\n\nYour movie file is being sent now...`;
-
-    // Get chat ID — user must have sent /start to the bot
     const chat = await telegramBot.getChat(`@${username}`);
 
     await telegramBot.sendMessage(chat.id, notificationMsg, {
       parse_mode: "Markdown",
     });
 
-    // Send the actual movie file
     await telegramBot.sendDocument(chat.id, telegramFileId, {
       caption: `*${movieTitle}*\n\nThank you for your purchase! Enjoy the movie.`,
       parse_mode: "Markdown",
@@ -65,24 +118,20 @@ export async function deliverMovieFromChannel(params: {
   const username = telegramUsername.replace(/^@/, "");
 
   try {
-    // First try to get chat — user must have /start-ed the bot
     let chatId: number | string;
     try {
       const chat = await telegramBot.getChat(`@${username}`);
       chatId = chat.id;
     } catch {
-      // Fallback: try sending directly to @username (works for public usernames with privacy off)
       chatId = `@${username}`;
     }
 
-    // Send welcome message
     await telegramBot.sendMessage(
       chatId,
       `🎬 *CineVault* — Your movie is ready!\n\n*${movieTitle}*\n\nSending your file now...`,
       { parse_mode: "Markdown" }
     );
 
-    // Forward the video document from the channel
     await telegramBot.sendDocument(chatId, telegramFileId, {
       caption: `*${movieTitle}*\n\nThank you for your purchase from CineVault! Enjoy the movie.`,
       parse_mode: "Markdown",

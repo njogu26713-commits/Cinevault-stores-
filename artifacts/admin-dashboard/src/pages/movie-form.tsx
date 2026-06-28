@@ -544,25 +544,67 @@ export function MovieForm() {
             <Card>
               <CardHeader>
                 <CardTitle>Movie File</CardTitle>
-                <CardDescription>Upload to Telegram</CardDescription>
+                <CardDescription>Link a Telegram file to this movie</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {telegramFileId ? (
                   <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-md border border-border">
                     <CheckCircle2 className="w-5 h-5 text-green-500" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">File Uploaded</p>
-                      <p className="text-xs text-muted-foreground truncate">{telegramFileId}</p>
+                      <p className="text-sm font-medium">File linked</p>
+                      <p className="text-xs text-muted-foreground font-mono truncate">{telegramFileId}</p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 p-3 bg-destructive/10 text-destructive rounded-md border border-destructive/20">
                     <FileVideo className="w-5 h-5" />
-                    <p className="text-sm">No file uploaded yet</p>
+                    <p className="text-sm">No file linked yet</p>
                   </div>
                 )}
 
-                <div className="space-y-2">
+                {/* Manual File ID entry */}
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Paste File ID</label>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      placeholder="BQACAgIAAxkBAAI..."
+                      defaultValue={telegramFileId ?? ""}
+                      id="manual-file-id"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={async () => {
+                        const input = document.getElementById("manual-file-id") as HTMLInputElement;
+                        const fileId = input?.value?.trim();
+                        if (!fileId || !id) return;
+                        try {
+                          const res = await fetch(`/api/admin/movies/${id}`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ telegramFileId: fileId }),
+                          });
+                          if (!res.ok) throw new Error(await res.text());
+                          setTelegramFileId(fileId);
+                          queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(id) });
+                          toast({ title: "File ID saved!" });
+                        } catch {
+                          toast({ title: "Failed to save File ID", variant: "destructive" });
+                        }
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Forward the file from your Telegram channel to your bot — it will reply with the File ID to paste here.
+                  </p>
+                </div>
+
+                {/* Small file direct upload */}
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Or upload directly (max 50 MB)</p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -588,6 +630,17 @@ export function MovieForm() {
                       <p className="text-xs text-center text-muted-foreground">{uploadProgress}%</p>
                     </div>
                   )}
+                </div>
+
+                {/* Instructions */}
+                <div className="rounded-md bg-muted/50 border border-border p-3 space-y-1.5 text-xs text-muted-foreground">
+                  <p className="font-semibold text-foreground">How to upload large movies (any size):</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Upload the movie file to your Telegram channel via <strong>Telegram Desktop</strong></li>
+                    <li>Open a private chat with <strong>your bot</strong> and forward the file to it</li>
+                    <li>The bot replies with the <strong>File ID</strong> — copy it</li>
+                    <li>Paste the File ID in the field above and click <strong>Save</strong></li>
+                  </ol>
                 </div>
               </CardContent>
             </Card>
