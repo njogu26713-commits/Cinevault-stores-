@@ -31,7 +31,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "fuser -k 3000/tcp 5000/tcp 2>/dev/null; sleep 2; (cd artifacts/api-server && PORT=3000 pnpm run dev) & (cd artifacts/admin-dashboard && PORT=5000 BASE_PATH=/ pnpm run dev) & wait"
+args = "fuser -k 3000/tcp 5000/tcp 2>/dev/null; sleep 2; (PORT=3000 pnpm --filter @workspace/api-server run dev) & (PORT=5000 BASE_PATH=/ pnpm --filter @workspace/admin-dashboard run dev) & wait"
 waitForPort = 5000
 
 [agent]
