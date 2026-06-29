@@ -67,21 +67,17 @@ async function streamViaGramJS(
     thumbSize: "",
   });
 
-  // Align offset down to nearest 4096 boundary
-  let offset = Math.floor(start / 4096) * 4096;
+  // Align offset down to nearest CHUNK_SIZE boundary (Telegram requires fixed power-of-2 limit)
+  let offset = Math.floor(start / CHUNK_SIZE) * CHUNK_SIZE;
   let skipBytes = start - offset;
   let remaining = contentLength;
 
   while (remaining > 0 && !res.destroyed) {
-    const limit = Math.min(
-      CHUNK_SIZE,
-      Math.ceil((skipBytes + remaining) / 4096) * 4096
-    );
-
+    // ALWAYS use CHUNK_SIZE as limit — Telegram rejects non-power-of-2 values (LIMIT_INVALID)
     let result: Api.upload.File;
     try {
       result = (await client.invoke(
-        new Api.upload.GetFile({ location, offset: BigInt(offset), limit, cdn: false })
+        new Api.upload.GetFile({ location, offset: BigInt(offset), limit: CHUNK_SIZE, cdn: false })
       )) as Api.upload.File;
     } catch (err: any) {
       logger.warn({ err, offset }, "GramJS GetFile chunk error");
@@ -91,10 +87,13 @@ async function streamViaGramJS(
     const bytes = Buffer.from(result.bytes);
     if (bytes.length === 0) break;
 
+    // Trim to the window [skipBytes, skipBytes + remaining)
     const chunkStart = skipBytes;
     skipBytes = 0;
     const chunkEnd = Math.min(bytes.length, chunkStart + remaining);
     const slice = bytes.slice(chunkStart, chunkEnd);
+
+    if (slice.length === 0) break;
 
     if (!res.write(slice)) {
       await new Promise<void>((resolve) => res.once("drain", resolve));
