@@ -11,6 +11,47 @@ import { Api } from "telegram";
 
 const router = Router();
 
+// ── Free-preview limits ───────────────────────────────────────────────────────
+
+/** Number of episodes (from episode index 0) that are free per season. */
+const FREE_EPISODES_PER_SEASON = 2;
+
+/** Seconds of a movie available for free without purchase. */
+const FREE_MOVIE_PREVIEW_SECONDS = 10 * 60; // 10 minutes
+
+/**
+ * Parse a human-readable duration string to total seconds.
+ * Handles formats like "2h 15m", "135 min", "2:15:00", "135", "90m", etc.
+ * Returns 0 if the duration cannot be parsed.
+ */
+function parseDurationToSeconds(duration: string): number {
+  if (!duration) return 0;
+  const s = duration.trim();
+
+  // "H:MM:SS" or "H:MM"
+  const hms = s.match(/^(\d+):(\d{2})(?::(\d{2}))?$/);
+  if (hms) {
+    const h = parseInt(hms[1], 10);
+    const m = parseInt(hms[2], 10);
+    const sec = hms[3] ? parseInt(hms[3], 10) : 0;
+    return h * 3600 + m * 60 + sec;
+  }
+
+  // "Xh Ym" / "Xh" / "Ym" (e.g. "2h 15m", "1h30m", "90m")
+  const hm = s.match(/(?:(\d+)\s*h(?:r|ours?)?)?\s*(?:(\d+)\s*m(?:in(?:utes?)?)?)?/i);
+  if (hm && (hm[1] || hm[2])) {
+    const h = hm[1] ? parseInt(hm[1], 10) : 0;
+    const m = hm[2] ? parseInt(hm[2], 10) : 0;
+    return h * 3600 + m * 60;
+  }
+
+  // Plain number — assume minutes
+  const mins = parseFloat(s);
+  if (!isNaN(mins) && mins > 0) return mins * 60;
+
+  return 0;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const CHUNK_SIZE = 512 * 1024; // 512 KB — must be multiple of 4096
@@ -172,10 +213,11 @@ router.get("/movie/:id", async (req, res) => {
 
   // Verify purchase (if PAYMENT_BYPASS is true, skip check)
   const bypass = process.env["PAYMENT_BYPASS"] === "true";
-  if (!bypass && username) {
-    const purchased = await hasDeliveredOrder(username, id);
+  let isFreePreview = false;
+  if (!bypass) {
+    const purchased = username ? await hasDeliveredOrder(username, id) : false;
     if (!purchased) {
-      return res.status(403).json({ error: "PURCHASE_REQUIRED", message: "Purchase required to stream this movie." });
+      isFreePreview = true; // Allow streaming, but byte-limited to FREE_MOVIE_PREVIEW_SECONDS
     }
   }
 
@@ -185,10 +227,10 @@ router.get("/movie/:id", async (req, res) => {
   // Check mode — return JSON status without streaming any bytes
   if (isCheck) {
     if (mtprotoReady) {
-      return res.json({ ok: true, method: "gramjs" });
+      return res.json({ ok: true, method: "gramjs", freePreview: isFreePreview });
     }
     if (movie.telegramFileId) {
-      return res.json({ ok: true, method: "botapi" });
+      return res.json({ ok: true, method: "botapi", freePreview: isFreePreview });
     }
     return res.status(503).json({
       error: "MTPROTO_REQUIRED",
@@ -207,7 +249,23 @@ router.get("/movie/:id", async (req, res) => {
       const media = msg?.media as Api.MessageMediaDocument | undefined;
       const doc = media?.document as Api.Document | undefined;
       const totalSize = doc ? Number((doc as any).size) : 0;
-      const { start, end } = parseRange(rangeHeader, totalSize || 1);
+      let { start, end } = parseRange(rangeHeader, totalSize || 1);
+
+      if (isFreePreview && totalSize > 0) {
+        const durationSec = parseDurationToSeconds(movie.duration);
+        const freeByteLimit =
+          durationSec > 0
+            ? Math.floor(totalSize * (FREE_MOVIE_PREVIEW_SECONDS / durationSec))
+            : 150 * 1024 * 1024; // fallback: ~150 MB at 2 Mbps
+        if (start >= freeByteLimit) {
+          return res.status(403).json({
+            error: "PURCHASE_REQUIRED",
+            message: "Purchase required to watch beyond the free preview.",
+          });
+        }
+        end = Math.min(end, freeByteLimit - 1);
+      }
+
       await streamViaGramJS(client!, channelId, movie.telegramMessageId!, start, end, res);
       return;
     }
@@ -224,7 +282,30 @@ router.get("/movie/:id", async (req, res) => {
   }
 
   try {
-    const { start, end } = parseRange(rangeHeader, 20 * 1024 * 1024);
+    // Fetch actual file metadata so the preview cap is proportional to the real file size
+    const bot = getTelegramBot();
+    const fileInfo = await bot.getFile(movie.telegramFileId);
+    const actualFileSize: number = (fileInfo as any).file_size ?? 20 * 1024 * 1024;
+
+    let { start, end } = parseRange(rangeHeader, actualFileSize);
+
+    if (isFreePreview) {
+      const durationSec = parseDurationToSeconds(movie.duration);
+      const rawLimit =
+        durationSec > 0
+          ? Math.floor(actualFileSize * (FREE_MOVIE_PREVIEW_SECONDS / durationSec))
+          : Math.floor(actualFileSize * 0.15); // fallback: ~15% of file
+      // Clamp to [1, actualFileSize] to avoid 0-byte or out-of-bounds limits
+      const freeByteLimit = Math.max(1, Math.min(rawLimit, actualFileSize));
+      if (start >= freeByteLimit) {
+        return res.status(403).json({
+          error: "PURCHASE_REQUIRED",
+          message: "Purchase required to watch beyond the free preview.",
+        });
+      }
+      end = Math.min(end, freeByteLimit - 1);
+    }
+
     await streamViaBotAPI(movie.telegramFileId, start, end, res);
   } catch (err: any) {
     logger.error({ err, movieId: id }, "Streaming failed");
@@ -257,16 +338,17 @@ router.get("/episode/:seriesId/:seasonIdx/:episodeIdx", async (req, res) => {
     return res.status(503).json({ error: "No video file attached to this episode yet" });
   }
 
-  // Verify purchase
+  // First FREE_EPISODES_PER_SEASON episodes of each season are free; the rest require purchase
   const bypass = process.env["PAYMENT_BYPASS"] === "true";
-  if (!bypass && username) {
+  const isFreeEpisode = Number(episodeIdx) < FREE_EPISODES_PER_SEASON;
+  if (!bypass && !isFreeEpisode) {
     const order = await Order.findOne({
-      telegramUsername: username.replace(/^@/, ""),
+      telegramUsername: (username ?? "").replace(/^@/, ""),
       seriesId,
       status: "delivered",
     }).lean();
     if (!order) {
-      return res.status(403).json({ error: "Purchase required to stream this episode" });
+      return res.status(403).json({ error: "PURCHASE_REQUIRED", message: "Purchase required to stream this episode." });
     }
   }
 
