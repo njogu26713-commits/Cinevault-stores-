@@ -3,8 +3,14 @@ import { StringSession } from "telegram/sessions";
 import { computeCheck } from "telegram/Password";
 import { EventEmitter } from "events";
 import fs from "fs";
+import path from "path";
+import os from "os";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { logger } from "../lib/logger";
 import { getSetting, saveSettings } from "../lib/settings-store";
+
+const execFileAsync = promisify(execFile);
 
 // ── Auth State ────────────────────────────────────────────────────────────────
 
@@ -313,7 +319,121 @@ export function emitUploadError(jobId: string, error: string): void {
   _lastProgress.delete(jobId);
 }
 
+// ── Video Detection & Metadata ─────────────────────────────────────────────────
+
+const VIDEO_EXTENSIONS = new Set([".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".ts", ".flv"]);
+
+function isVideoFile(filePath: string): boolean {
+  return VIDEO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+}
+
+interface VideoMeta {
+  duration: number; // seconds (integer)
+  width: number;
+  height: number;
+}
+
+async function getVideoMeta(filePath: string): Promise<VideoMeta> {
+  const { stdout } = await execFileAsync("ffprobe", [
+    "-v", "quiet",
+    "-print_format", "json",
+    "-show_streams",
+    "-select_streams", "v:0",
+    filePath,
+  ]);
+  const data = JSON.parse(stdout);
+  const stream = data.streams?.[0] ?? {};
+  const duration = Math.round(parseFloat(stream.duration ?? "0")) || 0;
+  const width = parseInt(stream.width ?? "0", 10) || 0;
+  const height = parseInt(stream.height ?? "0", 10) || 0;
+  return { duration, width, height };
+}
+
+async function generateThumbnail(filePath: string, durationSec: number): Promise<string | null> {
+  try {
+    const thumbPath = path.join(os.tmpdir(), `thumb_${Date.now()}.jpg`);
+    const seekSec = Math.max(0, Math.round(durationSec * 0.1));
+    await execFileAsync("ffmpeg", [
+      "-ss", String(seekSec),
+      "-i", filePath,
+      "-vframes", "1",
+      "-vf", "scale=320:-1",
+      "-q:v", "5",
+      "-y",
+      thumbPath,
+    ]);
+    if (fs.existsSync(thumbPath)) return thumbPath;
+  } catch (err) {
+    logger.warn({ err }, "GramJS: Thumbnail generation failed — uploading without thumbnail");
+  }
+  return null;
+}
+
 // ── File Upload ───────────────────────────────────────────────────────────────
+
+async function doSendFile(
+  entity: any,
+  filePath: string,
+  caption: string,
+  stat: fs.Stats,
+  fileSizeMB: string,
+  jobId: string,
+  asVideo: boolean,
+  videoMeta: VideoMeta | null,
+  thumbPath: string | null
+): Promise<any> {
+  let lastPercent = -1;
+  let lastSpeedTime = Date.now();
+  let lastSpeedBytes = 0;
+
+  const progressCallback = (progress: number) => {
+    const rawPercent = Math.min(99, Math.round(progress * 100));
+    const now = Date.now();
+    const dtSec = (now - lastSpeedTime) / 1000;
+    const loadedBytes = progress * stat.size;
+    let speedMBps = 0;
+    if (dtSec > 0.5) {
+      speedMBps = Math.max(0, Math.round(((loadedBytes - lastSpeedBytes) / dtSec / (1024 * 1024)) * 10) / 10);
+      lastSpeedTime = now;
+      lastSpeedBytes = loadedBytes;
+    }
+    if (rawPercent !== lastPercent) {
+      lastPercent = rawPercent;
+      emitProgress(jobId, { phase: "uploading_to_telegram", percent: rawPercent, speedMBps, fileSizeMB });
+    }
+  };
+
+  if (asVideo && videoMeta) {
+    const attributes: Api.TypeDocumentAttribute[] = [
+      new Api.DocumentAttributeVideo({
+        duration: videoMeta.duration,
+        w: videoMeta.width,
+        h: videoMeta.height,
+        supportsStreaming: true,
+      }),
+      new Api.DocumentAttributeFilename({ fileName: path.basename(filePath) }),
+    ];
+
+    return await (_client as any).sendFile(entity, {
+      file: filePath,
+      caption,
+      forceDocument: false,
+      thumb: thumbPath ?? undefined,
+      attributes,
+      workers: 4,
+      progressCallback,
+    });
+  }
+
+  // Document fallback
+  return await (_client as any).sendFile(entity, {
+    file: filePath,
+    caption,
+    forceDocument: true,
+    workers: 4,
+    progressCallback,
+  });
+}
 
 export async function uploadFileToChannel(
   jobId: string,
@@ -328,6 +448,23 @@ export async function uploadFileToChannel(
 
   const stat = fs.statSync(filePath);
   const fileSizeMB = (stat.size / (1024 * 1024)).toFixed(1);
+  const isVideo = isVideoFile(filePath);
+
+  // Probe video metadata and generate thumbnail before starting transfer
+  let videoMeta: VideoMeta | null = null;
+  let thumbPath: string | null = null;
+  if (isVideo) {
+    try {
+      videoMeta = await getVideoMeta(filePath);
+      logger.info({ jobId, videoMeta }, "GramJS: Video metadata probed");
+    } catch (err) {
+      logger.warn({ err, jobId }, "GramJS: ffprobe failed — will upload as document");
+    }
+    if (videoMeta && videoMeta.duration > 0) {
+      thumbPath = await generateThumbnail(filePath, videoMeta.duration);
+      if (thumbPath) logger.info({ jobId, thumbPath }, "GramJS: Thumbnail generated");
+    }
+  }
 
   emitProgress(jobId, { phase: "uploading_to_telegram", percent: 0, fileSizeMB });
 
@@ -351,49 +488,29 @@ export async function uploadFileToChannel(
         entity = await _client.getEntity(channelIdStr);
       }
 
-      let lastPercent = -1;
-      let lastSpeedTime = Date.now();
-      let lastSpeedBytes = 0;
-
-      const result: any = await (_client as any).sendFile(entity, {
-        file: filePath,
-        caption,
-        forceDocument: true,
-        workers: 4,
-        progressCallback: (progress: number) => {
-          const rawPercent = Math.min(99, Math.round(progress * 100));
-          const now = Date.now();
-          const dtSec = (now - lastSpeedTime) / 1000;
-          const loadedBytes = progress * stat.size;
-          let speedMBps = 0;
-
-          if (dtSec > 0.5) {
-            speedMBps =
-              Math.max(0, Math.round(((loadedBytes - lastSpeedBytes) / dtSec / (1024 * 1024)) * 10) / 10);
-            lastSpeedTime = now;
-            lastSpeedBytes = loadedBytes;
-          }
-
-          if (rawPercent !== lastPercent) {
-            lastPercent = rawPercent;
-            emitProgress(jobId, {
-              phase: "uploading_to_telegram",
-              percent: rawPercent,
-              speedMBps,
-              fileSizeMB,
-            });
-          }
-        },
-      });
+      // Try as video first; fall back to document if Telegram rejects the media type
+      const tryAsVideo = isVideo && videoMeta !== null;
+      let result: any;
+      try {
+        result = await doSendFile(entity, filePath, caption, stat, fileSizeMB, jobId, tryAsVideo, videoMeta, thumbPath);
+      } catch (mediaErr: any) {
+        const mediaMsg: string = mediaErr?.message ?? mediaErr?.errorMessage ?? "";
+        if (
+          tryAsVideo &&
+          (mediaMsg.includes("MEDIA_INVALID") || mediaMsg.includes("VIDEO_CONTENT_TYPE_INVALID"))
+        ) {
+          logger.warn({ jobId, mediaMsg }, "GramJS: Video upload rejected — falling back to document");
+          emitProgress(jobId, { phase: "uploading_to_telegram", percent: 0, fileSizeMB });
+          result = await doSendFile(entity, filePath, caption, stat, fileSizeMB, jobId, false, null, null);
+        } else {
+          throw mediaErr;
+        }
+      }
 
       const messageId: number = result.id;
-      logger.info({ jobId, messageId, fileName }, "GramJS: Upload complete");
+      logger.info({ jobId, messageId, fileName, asVideo: tryAsVideo }, "GramJS: Upload complete");
 
-      emitProgress(jobId, {
-        phase: "uploading_to_telegram",
-        percent: 99,
-        fileSizeMB,
-      });
+      emitProgress(jobId, { phase: "uploading_to_telegram", percent: 99, fileSizeMB });
 
       // Wait for Bot API to receive the channel_post and give us the Bot API file_id
       let botFileId = "";
@@ -404,33 +521,27 @@ export async function uploadFileToChannel(
         logger.warn({ jobId, messageId }, "GramJS: Bot API file_id not received — storing empty string");
       }
 
-      emitProgress(jobId, {
-        phase: "complete",
-        percent: 100,
-        fileId: botFileId,
-        messageId,
-        fileSizeMB,
-      });
-
+      emitProgress(jobId, { phase: "complete", percent: 100, fileId: botFileId, messageId, fileSizeMB });
       _uploadJobs.delete(jobId);
+
+      if (thumbPath) fs.unlink(thumbPath, () => {});
+
       return { fileId: botFileId, messageId, fileSizeMB };
     } catch (err: any) {
       lastErr = err instanceof Error ? err : new Error(String(err));
       logger.error({ err, jobId, attempt }, "GramJS: Upload attempt failed");
 
-      const msg = (err.message ?? err.errorMessage ?? "");
+      const msg: string = err.message ?? err.errorMessage ?? "";
 
       // Auth key revoked — session is dead. Clear it immediately and don't retry.
       if (
         msg.includes("AUTH_KEY_UNREGISTERED") ||
         msg.includes("AUTH_KEY_INVALID") ||
         msg.includes("AUTH_KEY_DUPLICATED") ||
-        (err.code === 401)
+        err.code === 401
       ) {
         logger.warn({ jobId }, "GramJS: Session revoked by Telegram — clearing saved session");
-        try {
-          if (_client) await _client.disconnect().catch(() => {});
-        } catch {}
+        try { if (_client) await _client.disconnect().catch(() => {}); } catch {}
         _client = null;
         _authState = "disconnected";
         _lastError = "SESSION_EXPIRED";
@@ -452,6 +563,8 @@ export async function uploadFileToChannel(
       if (!isRetryable || attempt >= MAX_RETRIES - 1) break;
     }
   }
+
+  if (thumbPath) fs.unlink(thumbPath, () => {});
 
   const errMsg = lastErr?.message ?? "Upload failed";
   emitProgress(jobId, { phase: "error", percent: 0, error: errMsg });
