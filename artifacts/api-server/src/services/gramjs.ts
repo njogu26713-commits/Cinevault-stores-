@@ -137,11 +137,31 @@ export async function initializeGramJS(): Promise<void> {
       await _client.disconnect().catch(() => {});
       _client = null;
       _authState = "disconnected";
+      saveSettings({ telegramSession: "" });
     }
   } catch (err: any) {
+    const msg: string = err.message ?? err.errorMessage ?? "";
+
+    // Session duplicated or unregistered — clear it so admin can re-auth cleanly
+    if (
+      msg.includes("AUTH_KEY_DUPLICATED") ||
+      msg.includes("AUTH_KEY_UNREGISTERED") ||
+      msg.includes("AUTH_KEY_INVALID") ||
+      err.code === 406 ||
+      err.code === 401
+    ) {
+      logger.warn({ code: err.code, msg }, "GramJS: Session key rejected by Telegram — clearing saved session");
+      try { await _client?.disconnect().catch(() => {}); } catch {}
+      _client = null;
+      _authState = "disconnected";
+      _lastError = null;
+      saveSettings({ telegramSession: "" });
+      return; // Not an error state — just needs fresh login
+    }
+
     logger.error({ err }, "GramJS: Auto-connect failed");
     _authState = "error";
-    _lastError = err.message ?? "Connection failed";
+    _lastError = msg || "Connection failed";
     _client = null;
   }
 }
@@ -285,6 +305,12 @@ export function getUploadJob(jobId: string): {
 function emitProgress(jobId: string, progress: UploadProgress): void {
   _lastProgress.set(jobId, progress);
   _uploadJobs.get(jobId)?.emit("progress", progress);
+}
+
+export function emitUploadError(jobId: string, error: string): void {
+  emitProgress(jobId, { phase: "error", percent: 0, error });
+  _uploadJobs.delete(jobId);
+  _lastProgress.delete(jobId);
 }
 
 // ── File Upload ───────────────────────────────────────────────────────────────

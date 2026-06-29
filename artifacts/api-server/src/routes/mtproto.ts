@@ -16,6 +16,7 @@ import {
   authDisconnect,
   createUploadJob,
   getUploadJob,
+  emitUploadError,
   uploadFileToChannel,
   waitForChannelPostFileId,
 } from "../services/gramjs";
@@ -136,6 +137,17 @@ router.post(
         return res.status(404).json({ error: "Movie not found" });
       }
 
+      // Pre-check: GramJS must be connected before we commit to the background job
+      const status = getStatus();
+      if (status.state !== "connected") {
+        fs.unlink(file.path, () => {});
+        const msg =
+          status.state === "disconnected" || status.state === "error"
+            ? "Telegram not connected — go to Settings → Telegram Connect and sign in first"
+            : "Telegram session is still authenticating — try again in a moment";
+        return res.status(400).json({ error: msg });
+      }
+
       const jobId = createUploadJob();
       const fileName = file.originalname || `${movie.title}.mp4`;
       const caption = `🎬 ${movie.title} (${movie.year}) | ${movie.quality}`;
@@ -169,8 +181,11 @@ router.post(
           });
 
           logger.info({ movieId: id, messageId, botFileId }, "Movie MTProto upload complete");
-        } catch (err) {
+        } catch (err: any) {
+          const errMsg = err?.message ?? "Upload failed";
           logger.error({ err, movieId: id, jobId }, "Movie MTProto upload background job failed");
+          // Emit to SSE so the frontend receives the error (not a silent hang)
+          emitUploadError(jobId, errMsg);
         } finally {
           fs.unlink(file.path, () => {});
         }
@@ -229,6 +244,17 @@ router.post(
         return res.status(404).json({ error: "Episode not found" });
       }
 
+      // Pre-check: GramJS must be connected before we commit to the background job
+      const status = getStatus();
+      if (status.state !== "connected") {
+        fs.unlink(file.path, () => {});
+        const msg =
+          status.state === "disconnected" || status.state === "error"
+            ? "Telegram not connected — go to Settings → Telegram Connect and sign in first"
+            : "Telegram session is still authenticating — try again in a moment";
+        return res.status(400).json({ error: msg });
+      }
+
       const jobId = createUploadJob();
       const sNum = String(season.seasonNumber).padStart(2, "0");
       const eNum = String(episode.episodeNumber).padStart(2, "0");
@@ -262,8 +288,10 @@ router.post(
           }
 
           logger.info({ seriesId: id, seasonIdx, episodeIdx, messageId, botFileId }, "Episode MTProto upload complete");
-        } catch (err) {
+        } catch (err: any) {
+          const errMsg = err?.message ?? "Upload failed";
           logger.error({ err, seriesId: id, jobId }, "Episode MTProto upload background job failed");
+          emitUploadError(jobId, errMsg);
         } finally {
           fs.unlink(file.path, () => {});
         }
