@@ -1,15 +1,16 @@
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useState } from "react";
 import { useGetMovie, getGetMovieQueryKey, useListMovies } from "@workspace/api-client-react";
 import { Layout } from "../components/layout";
 import { QualityBadge, MovieCard } from "../components/movie-card";
 import { CheckoutModal } from "../components/checkout-modal";
 import { formatKes } from "../lib/utils";
-import { Loader2, Star, Clock, HardDrive, Calendar } from "lucide-react";
+import { Loader2, Star, Clock, HardDrive, Calendar, Play } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function MovieDetail() {
   const { id } = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const { data: movie, isLoading } = useGetMovie(id!, {
@@ -78,6 +79,17 @@ export default function MovieDetail() {
                     <span className="text-3xl font-black text-foreground">{formatKes(movie.price)}</span>
                   </div>
 
+                  {/* Watch button — shown when movie has a Telegram file attached */}
+                  {movie.telegramMessageId && (
+                    <button
+                      onClick={() => navigate(`/watch/${id}`)}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 mb-3"
+                    >
+                      <Play size={18} className="fill-current" />
+                      Watch Now
+                    </button>
+                  )}
+
                   <button
                     onClick={() => setCheckoutOpen(true)}
                     className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
@@ -85,7 +97,7 @@ export default function MovieDetail() {
                     Buy Now
                   </button>
                   <p className="text-center text-xs text-muted-foreground mt-4">
-                    Instantly delivered to Telegram
+                    {movie.telegramMessageId ? "Stream online or get it on Telegram" : "Instantly delivered to Telegram"}
                   </p>
                 </div>
               </motion.div>
