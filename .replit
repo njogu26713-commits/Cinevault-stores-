@@ -42,13 +42,13 @@ waitForPort = 5000
 name = "API Server"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "fuser -k 8080/tcp 2>/dev/null; sleep 1; PORT=8080 pnpm --filter @workspace/api-server run dev"
-waitForPort = 8080
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 node --enable-source-maps artifacts/api-server/dist/index.mjs"
+waitForPort = 8080
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -73,6 +73,10 @@ VITE_BOT_USERNAME = "Firebix_bot"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
 
 [nix]
 channel = "stable-25_05"

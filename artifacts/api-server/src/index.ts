@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { connectMongoDB } from "./lib/mongodb";
+import { loadSettingsFromDB } from "./lib/settings-store";
 import { startBotPolling } from "./services/telegram";
 import { initializeGramJS } from "./services/gramjs";
 
@@ -15,6 +16,9 @@ if (Number.isNaN(port) || port <= 0) {
 async function start() {
   try {
     await connectMongoDB();
+    // Load persisted settings (including GramJS session) from MongoDB
+    // so they survive autoscale deployment restarts
+    await loadSettingsFromDB();
   } catch (err) {
     logger.error({ err }, "Failed to connect to MongoDB — starting without DB (some routes will fail)");
   }
