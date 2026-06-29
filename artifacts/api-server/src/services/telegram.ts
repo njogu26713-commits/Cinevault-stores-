@@ -58,16 +58,22 @@ export async function startBotPolling(): Promise<void> {
     bot = null;
   }
 
-  // Force-drop any competing session (deployed instance, previous run, etc.)
-  // deleteWebhook with drop_pending_updates=true kills active long-poll sessions too
-  try {
-    const res = await fetch(
-      `https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=true`
-    );
-    const json = await res.json() as { ok: boolean };
-    if (json.ok) logger.info("Telegram: cleared webhook/session before polling");
-  } catch (err) {
-    logger.warn({ err }, "Telegram: failed to clear webhook before polling (continuing)");
+  // Only force-clear competing sessions in production.
+  // In development the deployed production app is likely already polling — calling
+  // deleteWebhook here would kill it and flood its logs with 409 errors.
+  const isProduction = process.env["NODE_ENV"] === "production";
+  if (isProduction) {
+    try {
+      const res = await fetch(
+        `https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=true`
+      );
+      const json = await res.json() as { ok: boolean };
+      if (json.ok) logger.info("Telegram: cleared webhook/session before polling");
+    } catch (err) {
+      logger.warn({ err }, "Telegram: failed to clear webhook before polling (continuing)");
+    }
+  } else {
+    logger.info("Telegram: dev mode — skipping deleteWebhook to preserve deployed app polling");
   }
 
   // Retry with exponential backoff to handle 409 Conflict from Telegram
@@ -179,6 +185,58 @@ export async function startBotPolling(): Promise<void> {
 
 // ── Delivery helpers ───────────────────────────────────────────────────────────
 
+/**
+ * Resolve a Telegram chat ID from a username.
+ * Returns the numeric chat ID when available (more reliable), otherwise `@username`.
+ */
+async function resolveChatId(telegramBot: TelegramBot, username: string): Promise<number | string> {
+  try {
+    const chat = await telegramBot.getChat(`@${username}`);
+    return chat.id;
+  } catch {
+    // getChat fails for users who haven't started the bot — fall back to @username
+    return `@${username}`;
+  }
+}
+
+/**
+ * Send a file to a chat, trying sendVideo first (native player) and falling back
+ * to sendDocument if Telegram rejects the file_id as a video type.
+ */
+async function sendFileToChat(
+  telegramBot: TelegramBot,
+  chatId: number | string,
+  fileId: string,
+  caption: string
+): Promise<void> {
+  // Try as video first — gives the native Telegram video player with play button
+  try {
+    await (telegramBot as any).sendVideo(chatId, fileId, {
+      caption,
+      parse_mode: "Markdown",
+      supports_streaming: true,
+    });
+    return;
+  } catch (videoErr: any) {
+    const msg: string = videoErr?.message ?? "";
+    // If Telegram says the file_id is wrong type (i.e. it was actually uploaded as a document),
+    // fall through to sendDocument. Otherwise rethrow.
+    const isTypeMismatch =
+      msg.includes("wrong file identifier") ||
+      msg.includes("DOCUMENT_INVALID") ||
+      msg.includes("wrong type") ||
+      msg.includes("Bad Request");
+    if (!isTypeMismatch) throw videoErr;
+    logger.info({ chatId }, "Delivery: sendVideo failed — retrying as document");
+  }
+
+  // Fallback: send as document (blue icon — still downloadable)
+  await (telegramBot as any).sendDocument(chatId, fileId, {
+    caption,
+    parse_mode: "Markdown",
+  });
+}
+
 export async function deliverMovieToUser(params: {
   telegramUsername: string;
   telegramFileId: string;
@@ -188,18 +246,20 @@ export async function deliverMovieToUser(params: {
   const { telegramUsername, telegramFileId, movieTitle, orderId } = params;
   const telegramBot = getTelegramBot();
   const username = telegramUsername.replace(/^@/, "");
+  const chatId = await resolveChatId(telegramBot, username);
 
   try {
-    const chat = await telegramBot.getChat(`@${username}`);
     await telegramBot.sendMessage(
-      chat.id,
-      `🎬 Your purchase is ready!\n\n*${movieTitle}*\n\nOrder ID: \`${orderId}\`\n\nYour movie file is being sent now...`,
+      chatId,
+      `🎬 Your purchase is ready!\n\n*${movieTitle}*\n\nOrder ID: \`${orderId}\`\n\nYour movie is being sent now...`,
       { parse_mode: "Markdown" }
     );
-    await telegramBot.sendDocument(chat.id, telegramFileId, {
-      caption: `*${movieTitle}*\n\nThank you for your purchase! Enjoy the movie.`,
-      parse_mode: "Markdown",
-    });
+    await sendFileToChat(
+      telegramBot,
+      chatId,
+      telegramFileId,
+      `🎬 *${movieTitle}*\n\nThank you for your purchase from CineVault! Enjoy the movie 🍿`
+    );
     logger.info({ username, movieTitle, orderId }, "Movie delivered via Telegram");
   } catch (err) {
     logger.error({ err, username, movieTitle, orderId }, "Failed to deliver movie via Telegram");
@@ -216,25 +276,20 @@ export async function deliverMovieFromChannel(params: {
   const { telegramUsername, telegramFileId, movieTitle, orderId } = params;
   const telegramBot = getTelegramBot();
   const username = telegramUsername.replace(/^@/, "");
+  const chatId = await resolveChatId(telegramBot, username);
 
   try {
-    let chatId: number | string;
-    try {
-      const chat = await telegramBot.getChat(`@${username}`);
-      chatId = chat.id;
-    } catch {
-      chatId = `@${username}`;
-    }
-
     await telegramBot.sendMessage(
       chatId,
       `🎬 *CineVault* — Your movie is ready!\n\n*${movieTitle}*\n\nSending your file now...`,
       { parse_mode: "Markdown" }
     );
-    await telegramBot.sendDocument(chatId, telegramFileId, {
-      caption: `*${movieTitle}*\n\nThank you for your purchase from CineVault! Enjoy the movie.`,
-      parse_mode: "Markdown",
-    });
+    await sendFileToChat(
+      telegramBot,
+      chatId,
+      telegramFileId,
+      `🎬 *${movieTitle}*\n\nThank you for your purchase from CineVault! Enjoy the movie 🍿`
+    );
     logger.info({ username, movieTitle, orderId }, "Movie delivered successfully via Telegram");
   } catch (err) {
     logger.error({ err, username, movieTitle, orderId }, "Failed to deliver movie via Telegram");
