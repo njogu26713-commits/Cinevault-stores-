@@ -91,10 +91,10 @@ export default function Home() {
                   <img
                     src={heroMovie.bannerUrl || heroMovie.posterUrl}
                     alt={heroMovie.title}
-                    className="w-full h-full object-cover object-top opacity-100"
+                    className="w-full h-full object-cover object-top"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/30 to-transparent" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/10 to-transparent" />
                 </div>
 
                 {/* Content */}
