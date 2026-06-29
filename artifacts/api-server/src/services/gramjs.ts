@@ -322,9 +322,12 @@ export function emitUploadError(jobId: string, error: string): void {
 // ── Video Detection & Metadata ─────────────────────────────────────────────────
 
 const VIDEO_EXTENSIONS = new Set([".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".ts", ".flv"]);
+const VIDEO_MIME_PREFIXES = ["video/"];
 
-function isVideoFile(filePath: string): boolean {
-  return VIDEO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+function isVideoFile(filePath: string, mimeType?: string): boolean {
+  if (VIDEO_EXTENSIONS.has(path.extname(filePath).toLowerCase())) return true;
+  if (mimeType && VIDEO_MIME_PREFIXES.some((p) => mimeType.startsWith(p))) return true;
+  return false;
 }
 
 interface VideoMeta {
@@ -440,7 +443,8 @@ export async function uploadFileToChannel(
   filePath: string,
   fileName: string,
   caption: string,
-  channelIdStr: string
+  channelIdStr: string,
+  mimeType?: string
 ): Promise<{ fileId: string; messageId: number; fileSizeMB: string }> {
   if (!_client || _authState !== "connected") {
     throw new Error("MTProto client not connected. Connect via Telegram → Connect page.");
@@ -448,7 +452,7 @@ export async function uploadFileToChannel(
 
   const stat = fs.statSync(filePath);
   const fileSizeMB = (stat.size / (1024 * 1024)).toFixed(1);
-  const isVideo = isVideoFile(filePath);
+  const isVideo = isVideoFile(filePath, mimeType);
 
   // Probe video metadata and generate thumbnail before starting transfer
   let videoMeta: VideoMeta | null = null;

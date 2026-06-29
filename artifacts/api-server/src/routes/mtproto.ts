@@ -23,9 +23,17 @@ import {
 
 const router = Router();
 
-// Multer: disk storage, no size limit (supports large files up to 4 GB)
+// Multer: preserve original extension so video detection works correctly
 const upload = multer({
-  dest: os.tmpdir(),
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, file, cb) => {
+      const ext = file.originalname.includes(".")
+        ? "." + file.originalname.split(".").pop()!.toLowerCase()
+        : "";
+      cb(null, `upload_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
+    },
+  }),
   limits: { fileSize: 4 * 1024 * 1024 * 1024 },
 });
 
@@ -163,7 +171,8 @@ router.post(
             file.path,
             fileName,
             caption,
-            channelId
+            channelId,
+            file.mimetype
           );
 
           // Get Bot API file_id from channel_post event
@@ -271,7 +280,8 @@ router.post(
             file.path,
             fileName,
             caption,
-            channelId
+            channelId,
+            file.mimetype
           );
 
           let botFileId = fileId;
