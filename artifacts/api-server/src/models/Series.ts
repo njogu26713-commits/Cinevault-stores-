@@ -7,6 +7,8 @@ export interface IEpisode {
   telegramFileId?: string | null;
   telegramMessageId?: number | null;
   subtitleUrl?: string | null;
+  subtitleVtt?: string | null;
+  subtitleStatus?: "generating" | "ready" | "error" | null;
 }
 
 export interface ISeason {
@@ -40,6 +42,8 @@ const EpisodeSchema = new Schema<IEpisode>(
     telegramFileId: { type: String, default: null },
     telegramMessageId: { type: Number, default: null },
     subtitleUrl: { type: String, default: null },
+    subtitleVtt: { type: String, default: null },
+    subtitleStatus: { type: String, enum: ["generating", "ready", "error"], default: null },
   },
   { _id: false }
 );

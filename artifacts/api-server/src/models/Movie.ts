@@ -17,6 +17,8 @@ export interface IMovie extends Document {
   telegramFileId?: string | null;
   telegramMessageId?: number | null;
   subtitleUrl?: string | null;
+  subtitleVtt?: string | null;
+  subtitleStatus?: "generating" | "ready" | "error" | null;
   published?: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +42,8 @@ const MovieSchema = new Schema<IMovie>(
     telegramFileId: { type: String, default: null },
     telegramMessageId: { type: Number, default: null },
     subtitleUrl: { type: String, default: null },
+    subtitleVtt: { type: String, default: null },
+    subtitleStatus: { type: String, enum: ["generating", "ready", "error"], default: null },
     published: { type: Boolean, default: false },
   },
   { timestamps: true }

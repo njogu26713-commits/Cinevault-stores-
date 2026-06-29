@@ -10,6 +10,7 @@ import authRouter from "./auth";
 import researchRouter from "./research";
 import mtprotoRouter from "./mtproto";
 import streamRouter from "./stream";
+import { adminSubtitleRouter, subtitleServeRouter } from "./subtitles";
 import { requireAdminAuth } from "../middleware/adminAuth";
 
 const router: IRouter = Router();
@@ -25,12 +26,16 @@ router.use("/orders", ordersRouter);
 router.use("/payments", paymentsRouter);
 router.use("/stream", streamRouter);
 
+// Subtitle serve (public — no auth)
+router.use("/subtitle", subtitleServeRouter);
+
 // Auth routes (public — no JWT required)
 router.use("/admin/auth", authRouter);
 
 // All other /admin routes require a valid JWT cookie
 router.use("/admin/research", requireAdminAuth, researchRouter);
 router.use("/admin/mtproto", requireAdminAuth, mtprotoRouter);
+router.use("/admin/subtitles", requireAdminAuth, adminSubtitleRouter);
 router.use("/admin", requireAdminAuth, adminRouter);
 
 // Seed endpoint — available in all environments (only seeds if DB is empty)
