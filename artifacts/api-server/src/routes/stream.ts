@@ -1,0 +1,306 @@
+import { Router } from "express";
+import axios from "axios";
+import mongoose from "mongoose";
+import { Movie } from "../models/Movie";
+import { Series } from "../models/Series";
+import { Order } from "../models/Order";
+import { logger } from "../lib/logger";
+import { getTelegramBot } from "../services/telegram";
+import { getClient, getAuthState } from "../services/gramjs";
+import { Api } from "telegram";
+
+const router = Router();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const CHUNK_SIZE = 512 * 1024; // 512 KB — must be multiple of 4096
+
+function parseRange(
+  header: string | undefined,
+  totalSize: number
+): { start: number; end: number } {
+  if (!header || !header.startsWith("bytes=")) {
+    return { start: 0, end: totalSize - 1 };
+  }
+  const [rawStart, rawEnd] = header.replace("bytes=", "").split("-");
+  const start = rawStart ? parseInt(rawStart, 10) : 0;
+  const end = rawEnd ? parseInt(rawEnd, 10) : totalSize - 1;
+  return {
+    start: Math.max(0, start),
+    end: Math.min(totalSize - 1, end),
+  };
+}
+
+/** Stream using GramJS MTProto — works for any file size */
+async function streamViaGramJS(
+  client: import("telegram").TelegramClient,
+  channelId: string,
+  messageId: number,
+  start: number,
+  end: number,
+  res: import("express").Response
+): Promise<void> {
+  const messages = await client.getMessages(channelId, { ids: [messageId] });
+  if (!messages.length || !messages[0]) throw new Error("Message not found in channel");
+
+  const msg = messages[0];
+  const media = msg.media as Api.MessageMediaDocument;
+  if (!media?.document) throw new Error("No document found in message");
+
+  const doc = media.document as Api.Document;
+  const mimeType = (doc as any).mimeType || "video/mp4";
+  const totalSize = Number((doc as any).size);
+  const safeEnd = Math.min(end, totalSize - 1);
+  const contentLength = safeEnd - start + 1;
+
+  res.status(206);
+  res.setHeader("Content-Type", mimeType);
+  res.setHeader("Content-Length", contentLength);
+  res.setHeader("Content-Range", `bytes ${start}-${safeEnd}/${totalSize}`);
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "no-store");
+
+  const location = new Api.InputDocumentFileLocation({
+    id: (doc as any).id,
+    accessHash: (doc as any).accessHash,
+    fileReference: (doc as any).fileReference,
+    thumbSize: "",
+  });
+
+  // Align offset down to nearest 4096 boundary
+  let offset = Math.floor(start / 4096) * 4096;
+  let skipBytes = start - offset;
+  let remaining = contentLength;
+
+  while (remaining > 0 && !res.destroyed) {
+    const limit = Math.min(
+      CHUNK_SIZE,
+      Math.ceil((skipBytes + remaining) / 4096) * 4096
+    );
+
+    let result: Api.upload.File;
+    try {
+      result = (await client.invoke(
+        new Api.upload.GetFile({ location, offset: BigInt(offset), limit, cdn: false })
+      )) as Api.upload.File;
+    } catch (err: any) {
+      logger.warn({ err, offset }, "GramJS GetFile chunk error");
+      break;
+    }
+
+    const bytes = Buffer.from(result.bytes);
+    if (bytes.length === 0) break;
+
+    const chunkStart = skipBytes;
+    skipBytes = 0;
+    const chunkEnd = Math.min(bytes.length, chunkStart + remaining);
+    const slice = bytes.slice(chunkStart, chunkEnd);
+
+    if (!res.write(slice)) {
+      await new Promise<void>((resolve) => res.once("drain", resolve));
+    }
+
+    remaining -= slice.length;
+    offset += bytes.length;
+  }
+
+  res.end();
+}
+
+/** Stream using Bot API proxy — fallback for files ≤ 20 MB */
+async function streamViaBotAPI(
+  fileId: string,
+  start: number,
+  end: number,
+  res: import("express").Response
+): Promise<void> {
+  const bot = getTelegramBot();
+  const file = await bot.getFile(fileId);
+  if (!file.file_path) throw new Error("Telegram did not return a file path (file may be >20 MB)");
+
+  const token = process.env["TELEGRAM_BOT_TOKEN"];
+  const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+
+  const axRes = await axios.get(url, {
+    responseType: "stream",
+    headers: { Range: `bytes=${start}-${end}` },
+    validateStatus: (s) => s >= 200 && s < 400,
+  });
+
+  const totalSize = parseInt(axRes.headers["content-range"]?.split("/")[1] ?? "0", 10) || 0;
+  const contentLength = end - start + 1;
+
+  res.status(206);
+  res.setHeader("Content-Type", axRes.headers["content-type"] || "video/mp4");
+  res.setHeader("Content-Length", contentLength);
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "no-store");
+  if (totalSize) {
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${totalSize}`);
+  }
+
+  axRes.data.pipe(res);
+}
+
+// ── Verify purchase ───────────────────────────────────────────────────────────
+
+async function hasDeliveredOrder(telegramUsername: string, movieId: string): Promise<boolean> {
+  const clean = telegramUsername.replace(/^@/, "");
+  const order = await Order.findOne({
+    telegramUsername: clean,
+    movieId,
+    status: "delivered",
+  }).lean();
+  return !!order;
+}
+
+// ── GET /api/stream/movie/:id ─────────────────────────────────────────────────
+router.get("/movie/:id", async (req, res) => {
+  const { id } = req.params;
+  const { username } = req.query as { username?: string };
+
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid movie ID" });
+  }
+
+  const movie = await Movie.findById(id).lean();
+  if (!movie) return res.status(404).json({ error: "Movie not found" });
+
+  if (!movie.telegramFileId) {
+    return res.status(503).json({ error: "No video file attached to this movie yet" });
+  }
+
+  // Verify purchase (if PAYMENT_BYPASS is true, skip check)
+  const bypass = process.env["PAYMENT_BYPASS"] === "true";
+  if (!bypass && username) {
+    const purchased = await hasDeliveredOrder(username, id);
+    if (!purchased) {
+      return res.status(403).json({ error: "Purchase required to stream this movie" });
+    }
+  }
+
+  // Determine file size — try GramJS first, then Bot API
+  const rangeHeader = req.headers.range;
+
+  try {
+    const client = getClient();
+    if (client && getAuthState() === "connected" && movie.telegramMessageId) {
+      const channelId =
+        process.env["TELEGRAM_CHANNEL_ID"] || "-1004396008121";
+
+      // We need total size to parse Range; fetch file size from the message
+      const messages = await client.getMessages(channelId, {
+        ids: [movie.telegramMessageId],
+      });
+      const msg = messages[0];
+      const media = msg?.media as Api.MessageMediaDocument | undefined;
+      const doc = media?.document as Api.Document | undefined;
+      const totalSize = doc ? Number((doc as any).size) : 0;
+
+      const { start, end } = parseRange(rangeHeader, totalSize || 1);
+      await streamViaGramJS(
+        client,
+        channelId,
+        movie.telegramMessageId,
+        start,
+        end,
+        res
+      );
+      return;
+    }
+  } catch (err: any) {
+    logger.warn({ err, movieId: id }, "GramJS stream failed, falling back to Bot API");
+  }
+
+  // Bot API fallback
+  try {
+    const { start, end } = parseRange(rangeHeader, 20 * 1024 * 1024);
+    await streamViaBotAPI(movie.telegramFileId, start, end, res);
+  } catch (err: any) {
+    logger.error({ err, movieId: id }, "Streaming failed");
+    if (!res.headersSent) {
+      return res.status(500).json({
+        error: "Streaming unavailable",
+        details:
+          "Connect your Telegram account in the admin panel (Settings → Telegram MTProto) to enable streaming for large files.",
+      });
+    }
+  }
+});
+
+// ── GET /api/stream/episode/:seriesId/:seasonIdx/:episodeIdx ──────────────────
+router.get("/episode/:seriesId/:seasonIdx/:episodeIdx", async (req, res) => {
+  const { seriesId, seasonIdx, episodeIdx } = req.params;
+  const { username } = req.query as { username?: string };
+
+  if (!mongoose.isValidObjectId(seriesId)) {
+    return res.status(400).json({ error: "Invalid series ID" });
+  }
+
+  const series = await Series.findById(seriesId).lean();
+  if (!series) return res.status(404).json({ error: "Series not found" });
+
+  const season = series.seasons[Number(seasonIdx)];
+  const episode = season?.episodes[Number(episodeIdx)];
+  if (!episode) return res.status(404).json({ error: "Episode not found" });
+
+  if (!episode.telegramFileId) {
+    return res.status(503).json({ error: "No video file attached to this episode yet" });
+  }
+
+  // Verify purchase
+  const bypass = process.env["PAYMENT_BYPASS"] === "true";
+  if (!bypass && username) {
+    const order = await Order.findOne({
+      telegramUsername: username.replace(/^@/, ""),
+      seriesId,
+      status: "delivered",
+    }).lean();
+    if (!order) {
+      return res.status(403).json({ error: "Purchase required to stream this episode" });
+    }
+  }
+
+  const rangeHeader = req.headers.range;
+
+  try {
+    const client = getClient();
+    if (client && getAuthState() === "connected" && episode.telegramMessageId) {
+      const channelId =
+        process.env["TELEGRAM_CHANNEL_ID"] || "-1004396008121";
+
+      const messages = await client.getMessages(channelId, {
+        ids: [episode.telegramMessageId],
+      });
+      const msg = messages[0];
+      const media = msg?.media as Api.MessageMediaDocument | undefined;
+      const doc = media?.document as Api.Document | undefined;
+      const totalSize = doc ? Number((doc as any).size) : 0;
+
+      const { start, end } = parseRange(rangeHeader, totalSize || 1);
+      await streamViaGramJS(
+        client,
+        channelId,
+        episode.telegramMessageId,
+        start,
+        end,
+        res
+      );
+      return;
+    }
+  } catch (err: any) {
+    logger.warn({ err, seriesId, seasonIdx, episodeIdx }, "GramJS episode stream failed");
+  }
+
+  try {
+    const { start, end } = parseRange(rangeHeader, 20 * 1024 * 1024);
+    await streamViaBotAPI(episode.telegramFileId, start, end, res);
+  } catch (err: any) {
+    logger.error({ err }, "Episode streaming failed");
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "Streaming unavailable" });
+    }
+  }
+});
+
+export default router;

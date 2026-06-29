@@ -89,6 +89,16 @@ function buildClient(sessionStr: string): TelegramClient {
   });
 }
 
+// ── Client accessors (for stream route) ──────────────────────────────────────
+
+export function getClient(): TelegramClient | null {
+  return _client;
+}
+
+export function getAuthState(): AuthState {
+  return _authState;
+}
+
 // ── Status ────────────────────────────────────────────────────────────────────
 
 export function getStatus(): {

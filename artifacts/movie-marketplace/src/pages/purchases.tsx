@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Layout } from "../components/layout";
 import { useGetUserOrders, getGetUserOrdersQueryKey } from "@workspace/api-client-react";
-import { Search, Loader2, History, AlertCircle } from "lucide-react";
+import { Search, Loader2, History, AlertCircle, Play } from "lucide-react";
 import { formatKes } from "../lib/utils";
 
 export default function Purchases() {
   const [searchInput, setSearchInput] = useState("");
-  const [username, setUsername] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(
+    () => localStorage.getItem("cv_username") || null
+  );
 
   const { data: orders, isLoading, isError } = useGetUserOrders(username!, {
     query: {
@@ -21,6 +23,7 @@ export default function Purchases() {
     let val = searchInput.trim();
     if (val && !val.startsWith('@')) val = '@' + val;
     if (val.length > 2) {
+      localStorage.setItem("cv_username", val);
       setUsername(val);
     }
   };
@@ -83,18 +86,23 @@ export default function Purchases() {
             ) : (
               <div className="grid gap-4">
                 {orders.map(order => (
-                  <Link
+                  <div
                     key={order.id}
-                    href={`/order/${order.id}`}
-                    className="flex flex-col sm:flex-row items-center gap-6 bg-card border border-border hover:border-primary/30 hover:shadow-md p-4 rounded-2xl transition-all group"
+                    className="flex flex-col sm:flex-row items-center gap-6 bg-card border border-border p-4 rounded-2xl"
                   >
-                    <img
-                      src={order.moviePosterUrl}
-                      className="w-16 h-24 object-cover rounded shadow-md group-hover:scale-105 transition-transform"
-                      alt={order.movieTitle}
-                    />
+                    <Link href={`/order/${order.id}`}>
+                      <img
+                        src={order.moviePosterUrl}
+                        className="w-16 h-24 object-cover rounded shadow-md hover:scale-105 transition-transform cursor-pointer"
+                        alt={order.movieTitle}
+                      />
+                    </Link>
                     <div className="flex-1 text-center sm:text-left">
-                      <h3 className="text-lg font-bold text-foreground mb-1">{order.movieTitle}</h3>
+                      <Link href={`/order/${order.id}`}>
+                        <h3 className="text-lg font-bold text-foreground mb-1 hover:text-primary transition-colors cursor-pointer">
+                          {order.movieTitle}
+                        </h3>
+                      </Link>
                       <p className="text-sm text-muted-foreground mb-3 sm:mb-0">
                         {new Date(order.createdAt).toLocaleDateString('en-US', {
                           year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -113,14 +121,23 @@ export default function Purchases() {
                       }`}>
                         {order.status.replace('_', ' ')}
                       </div>
+
+                      {order.status === 'delivered' && order.movieId && (
+                        <Link
+                          href={`/watch/${order.movieId}`}
+                          className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors"
+                        >
+                          <Play size={12} className="fill-current" />
+                          Watch
+                        </Link>
+                      )}
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             )}
           </div>
         )}
-
       </div>
     </Layout>
   );

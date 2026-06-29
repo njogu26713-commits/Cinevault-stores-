@@ -7,6 +7,8 @@ import SeriesBrowse from './pages/series-browse';
 import SeriesDetail from './pages/series-detail';
 import OrderStatus from './pages/order-status';
 import Purchases from './pages/purchases';
+import WatchMovie from './pages/watch';
+import WatchEpisode from './pages/watch-episode';
 import { Layout } from './components/layout';
 
 const queryClient = new QueryClient({
@@ -41,6 +43,8 @@ function Router() {
       <Route path="/series/:id" component={SeriesDetail} />
       <Route path="/order/:id" component={OrderStatus} />
       <Route path="/purchases" component={Purchases} />
+      <Route path="/watch/:id" component={WatchMovie} />
+      <Route path="/watch/episode/:id/:seasonIdx/:episodeIdx" component={WatchEpisode} />
       <Route component={NotFound} />
     </Switch>
   );

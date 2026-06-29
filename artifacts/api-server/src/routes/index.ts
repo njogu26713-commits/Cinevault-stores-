@@ -9,6 +9,7 @@ import adminRouter from "./admin";
 import authRouter from "./auth";
 import researchRouter from "./research";
 import mtprotoRouter from "./mtproto";
+import streamRouter from "./stream";
 import { requireAdminAuth } from "../middleware/adminAuth";
 
 const router: IRouter = Router();
@@ -22,6 +23,7 @@ router.use("/movies", moviesRouter);
 router.use("/series", seriesRouter);
 router.use("/orders", ordersRouter);
 router.use("/payments", paymentsRouter);
+router.use("/stream", streamRouter);
 
 // Auth routes (public — no JWT required)
 router.use("/admin/auth", authRouter);
