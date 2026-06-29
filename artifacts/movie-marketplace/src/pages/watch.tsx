@@ -2,7 +2,7 @@ import { useParams, useLocation } from "wouter";
 import { useRef, useState, useEffect } from "react";
 import { useGetMovie, getGetMovieQueryKey } from "@workspace/api-client-react";
 import { Layout } from "../components/layout";
-import { Loader2, ArrowLeft, AlertCircle, Play, Maximize2 } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Play, Maximize2, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 
 function useSavedUsername() {
@@ -25,6 +25,7 @@ export default function WatchMovie() {
   const [confirmed, setConfirmed] = useState(!!username);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [checking, setChecking] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const { data: movie, isLoading } = useGetMovie(id!, {
@@ -32,11 +33,32 @@ export default function WatchMovie() {
   });
 
   const streamUrl = `/api/stream/movie/${id}${username ? `?username=${encodeURIComponent(username)}` : ""}`;
+  const checkUrl = `/api/stream/movie/${id}?check=true${username ? `&username=${encodeURIComponent(username)}` : ""}`;
 
   useEffect(() => {
     setVideoError(null);
     setPlaying(false);
   }, [id]);
+
+  // Pre-flight check before loading the video element
+  const startPlayback = async () => {
+    setChecking(true);
+    setVideoError(null);
+    try {
+      const res = await fetch(checkUrl);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setVideoError(body.message || body.error || "Streaming unavailable. Please try again.");
+        return;
+      }
+      setPlaying(true);
+      setTimeout(() => videoRef.current?.play(), 100);
+    } catch {
+      setVideoError("Could not reach the server. Please check your connection and try again.");
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleConfirmUsername = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,11 +71,9 @@ export default function WatchMovie() {
 
   const toggleFullscreen = () => {
     if (!videoRef.current) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      videoRef.current.requestFullscreen();
-    }
+    document.fullscreenElement
+      ? document.exitFullscreen()
+      : videoRef.current.requestFullscreen();
   };
 
   if (isLoading) {
@@ -75,6 +95,13 @@ export default function WatchMovie() {
       </Layout>
     );
   }
+
+  const needsMtproto =
+    videoError?.includes("MTProto") ||
+    videoError?.includes("large") ||
+    videoError?.includes("Admin") ||
+    videoError?.includes("too large") ||
+    videoError?.includes("20 MB");
 
   return (
     <Layout>
@@ -138,26 +165,34 @@ export default function WatchMovie() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="max-w-lg text-center"
+                className="max-w-lg text-center space-y-4"
               >
-                <div className="w-14 h-14 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-5">
+                <div className="w-14 h-14 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
                   <AlertCircle size={26} className="text-destructive" />
                 </div>
-                <h2 className="text-white text-xl font-bold mb-2">Can't stream this movie</h2>
-                <p className="text-white/50 text-sm mb-6">{videoError}</p>
-                {videoError.includes("MTProto") || videoError.includes("large") ? (
-                  <p className="text-white/30 text-xs">
-                    The admin needs to connect the Telegram MTProto account in the admin panel
-                    to enable streaming for large video files.
-                  </p>
-                ) : (
-                  <button
-                    onClick={() => navigate(`/movie/${id}`)}
-                    className="bg-zinc-800 hover:bg-zinc-700 text-white font-medium py-2 px-6 rounded-xl transition-colors"
+                <h2 className="text-white text-xl font-bold">Can't stream this movie</h2>
+                <p className="text-white/50 text-sm leading-relaxed">{videoError}</p>
+
+                {needsMtproto ? (
+                  <a
+                    href="/admin/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl transition-colors"
                   >
-                    Go back
+                    <ExternalLink size={15} />
+                    Open Admin → Telegram Connect
+                  </a>
+                ) : null}
+
+                <div>
+                  <button
+                    onClick={() => { setVideoError(null); setPlaying(false); }}
+                    className="text-white/40 hover:text-white/70 text-sm transition-colors underline underline-offset-2"
+                  >
+                    Try again
                   </button>
-                )}
+                </div>
               </motion.div>
             ) : (
               <div className="w-full max-w-5xl">
@@ -166,10 +201,7 @@ export default function WatchMovie() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="relative rounded-2xl overflow-hidden aspect-video bg-zinc-900 mb-4 cursor-pointer group"
-                    onClick={() => {
-                      setPlaying(true);
-                      setTimeout(() => videoRef.current?.play(), 100);
-                    }}
+                    onClick={checking ? undefined : startPlayback}
                   >
                     <img
                       src={movie.bannerUrl || movie.posterUrl}
@@ -177,9 +209,15 @@ export default function WatchMovie() {
                       className="w-full h-full object-cover opacity-40"
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-20 h-20 bg-white/10 group-hover:bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors border border-white/20">
-                        <Play size={36} className="text-white fill-white ml-1" />
-                      </div>
+                      {checking ? (
+                        <div className="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20">
+                          <Loader2 size={32} className="text-white animate-spin" />
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 bg-white/10 group-hover:bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors border border-white/20">
+                          <Play size={36} className="text-white fill-white ml-1" />
+                        </div>
+                      )}
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
                       <p className="text-white font-bold text-xl">{movie.title}</p>
@@ -201,17 +239,12 @@ export default function WatchMovie() {
                       autoPlay
                       className="w-full h-full"
                       onError={(e) => {
-                        const vid = e.currentTarget;
-                        const code = vid.error?.code;
-                        if (code === 4) {
-                          setVideoError(
-                            "This movie can't be streamed directly. The file may be too large for the Bot API. Connect the Telegram MTProto account in the admin panel to stream large files."
-                          );
-                        } else {
-                          setVideoError(
-                            `Playback error (code ${code ?? "unknown"}). Make sure the movie file is attached and try again.`
-                          );
-                        }
+                        const code = e.currentTarget.error?.code;
+                        setVideoError(
+                          code === 4
+                            ? "File is too large for the Bot API (>20 MB). Go to Admin → Telegram Connect and sign in to stream large files."
+                            : `Playback error (code ${code ?? "unknown"}). Make sure the movie file is attached and try again.`
+                        );
                         setPlaying(false);
                       }}
                       style={{ display: "block" }}
@@ -222,7 +255,7 @@ export default function WatchMovie() {
                 <div className="mt-4 flex items-center justify-between text-white/40 text-xs px-1">
                   <span>Streaming as <span className="text-white/60 font-medium">{username}</span></span>
                   <button
-                    onClick={() => { setConfirmed(false); setPlaying(false); }}
+                    onClick={() => { setConfirmed(false); setPlaying(false); setVideoError(null); }}
                     className="hover:text-white/60 transition-colors"
                   >
                     Switch account

@@ -157,7 +157,8 @@ async function hasDeliveredOrder(telegramUsername: string, movieId: string): Pro
 // ── GET /api/stream/movie/:id ─────────────────────────────────────────────────
 router.get("/movie/:id", async (req, res) => {
   const { id } = req.params;
-  const { username } = req.query as { username?: string };
+  const { username, check } = req.query as { username?: string; check?: string };
+  const isCheck = check === "true" || check === "1";
 
   if (!mongoose.isValidObjectId(id)) {
     return res.status(400).json({ error: "Invalid movie ID" });
@@ -166,8 +167,8 @@ router.get("/movie/:id", async (req, res) => {
   const movie = await Movie.findById(id).lean();
   if (!movie) return res.status(404).json({ error: "Movie not found" });
 
-  if (!movie.telegramFileId) {
-    return res.status(503).json({ error: "No video file attached to this movie yet" });
+  if (!movie.telegramFileId && !movie.telegramMessageId) {
+    return res.status(503).json({ error: "NO_FILE", message: "No video file attached to this movie yet." });
   }
 
   // Verify purchase (if PAYMENT_BYPASS is true, skip check)
@@ -175,37 +176,40 @@ router.get("/movie/:id", async (req, res) => {
   if (!bypass && username) {
     const purchased = await hasDeliveredOrder(username, id);
     if (!purchased) {
-      return res.status(403).json({ error: "Purchase required to stream this movie" });
+      return res.status(403).json({ error: "PURCHASE_REQUIRED", message: "Purchase required to stream this movie." });
     }
+  }
+
+  const client = getClient();
+  const mtprotoReady = client && getAuthState() === "connected" && !!movie.telegramMessageId;
+
+  // Check mode — return JSON status without streaming any bytes
+  if (isCheck) {
+    if (mtprotoReady) {
+      return res.json({ ok: true, method: "gramjs" });
+    }
+    if (movie.telegramFileId) {
+      return res.json({ ok: true, method: "botapi" });
+    }
+    return res.status(503).json({
+      error: "MTPROTO_REQUIRED",
+      message: "MTProto not connected. Go to Admin → Telegram Connect and sign in to enable streaming.",
+    });
   }
 
   // Determine file size — try GramJS first, then Bot API
   const rangeHeader = req.headers.range;
 
   try {
-    const client = getClient();
-    if (client && getAuthState() === "connected" && movie.telegramMessageId) {
-      const channelId =
-        process.env["TELEGRAM_CHANNEL_ID"] || "-1004396008121";
-
-      // We need total size to parse Range; fetch file size from the message
-      const messages = await client.getMessages(channelId, {
-        ids: [movie.telegramMessageId],
-      });
+    if (mtprotoReady) {
+      const channelId = process.env["TELEGRAM_CHANNEL_ID"] || "-1004396008121";
+      const messages = await client!.getMessages(channelId, { ids: [movie.telegramMessageId!] });
       const msg = messages[0];
       const media = msg?.media as Api.MessageMediaDocument | undefined;
       const doc = media?.document as Api.Document | undefined;
       const totalSize = doc ? Number((doc as any).size) : 0;
-
       const { start, end } = parseRange(rangeHeader, totalSize || 1);
-      await streamViaGramJS(
-        client,
-        channelId,
-        movie.telegramMessageId,
-        start,
-        end,
-        res
-      );
+      await streamViaGramJS(client!, channelId, movie.telegramMessageId!, start, end, res);
       return;
     }
   } catch (err: any) {
@@ -213,16 +217,22 @@ router.get("/movie/:id", async (req, res) => {
   }
 
   // Bot API fallback
+  if (!movie.telegramFileId) {
+    return res.status(503).json({
+      error: "MTPROTO_REQUIRED",
+      message: "MTProto not connected and no Bot API file ID available. Go to Admin → Telegram Connect.",
+    });
+  }
+
   try {
     const { start, end } = parseRange(rangeHeader, 20 * 1024 * 1024);
     await streamViaBotAPI(movie.telegramFileId, start, end, res);
   } catch (err: any) {
     logger.error({ err, movieId: id }, "Streaming failed");
     if (!res.headersSent) {
-      return res.status(500).json({
-        error: "Streaming unavailable",
-        details:
-          "Connect your Telegram account in the admin panel (Settings → Telegram MTProto) to enable streaming for large files.",
+      return res.status(503).json({
+        error: "MTPROTO_REQUIRED",
+        message: "File is too large for the Bot API (>20 MB). Go to Admin → Telegram Connect and sign in to stream large files.",
       });
     }
   }
