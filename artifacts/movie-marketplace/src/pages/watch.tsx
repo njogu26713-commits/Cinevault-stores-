@@ -52,7 +52,11 @@ export default function WatchMovie() {
         return;
       }
       setPlaying(true);
-      setTimeout(() => videoRef.current?.play(), 100);
+      setTimeout(() => {
+        videoRef.current?.play().catch(() => {
+          // Ignore interrupted play — onError will handle real failures
+        });
+      }, 100);
     } catch {
       setVideoError("Could not reach the server. Please check your connection and try again.");
     } finally {
@@ -239,6 +243,8 @@ export default function WatchMovie() {
                       autoPlay
                       className="w-full h-full"
                       onError={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         const code = e.currentTarget.error?.code;
                         setVideoError(
                           code === 4
