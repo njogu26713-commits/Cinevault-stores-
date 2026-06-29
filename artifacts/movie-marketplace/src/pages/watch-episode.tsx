@@ -178,6 +178,7 @@ export default function WatchEpisode() {
                       controls
                       autoPlay
                       className="w-full h-full"
+                      crossOrigin="anonymous"
                       onError={(e) => {
                         const code = e.currentTarget.error?.code;
                         setVideoError(
@@ -188,7 +189,17 @@ export default function WatchEpisode() {
                         setPlaying(false);
                       }}
                       style={{ display: "block" }}
-                    />
+                    >
+                      {episode.subtitleUrl && (
+                        <track
+                          kind="subtitles"
+                          src={episode.subtitleUrl}
+                          srcLang="en"
+                          label="English"
+                          default
+                        />
+                      )}
+                    </video>
                   </motion.div>
                 )}
 

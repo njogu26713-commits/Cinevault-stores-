@@ -36,6 +36,7 @@ const episodeSchema = z.object({
   title: z.string().min(1, "Episode title required"),
   duration: z.string().min(1, "Duration required"),
   telegramFileId: z.string().optional(),
+  subtitleUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
 });
 
 const seasonSchema = z.object({
@@ -192,6 +193,7 @@ export function SeriesForm() {
             title: e.title,
             duration: e.duration,
             telegramFileId: e.telegramFileId ?? "",
+            subtitleUrl: (e as any).subtitleUrl ?? "",
           })) ?? [],
         })) ?? [],
       });
@@ -365,6 +367,7 @@ export function SeriesForm() {
           title: e.title,
           duration: e.duration,
           telegramFileId: e.telegramFileId || null,
+          subtitleUrl: e.subtitleUrl || null,
         })),
       })),
     };
@@ -708,7 +711,7 @@ function SeasonEditor({
                   )}
                 />
               </div>
-              <div className="col-span-5">
+              <div className="col-span-3">
                 <label className="text-xs text-muted-foreground block mb-1">Title</label>
                 <FormField
                   control={form.control}
@@ -733,6 +736,20 @@ function SeasonEditor({
                 />
               </div>
               <div className="col-span-3">
+                <label className="text-xs text-muted-foreground block mb-1">Subtitle (.vtt URL)</label>
+                <FormField
+                  control={form.control}
+                  name={`seasons.${sIdx}.episodes.${eIdx}.subtitleUrl`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input {...field} className="h-8 text-xs" placeholder="https://…/sub.vtt" />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="col-span-2">
                 <label className="text-xs text-muted-foreground block mb-1">File</label>
                 {(() => {
                   const fileId = form.watch(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`);
@@ -810,6 +827,7 @@ function SeasonEditor({
               title: "",
               duration: "",
               telegramFileId: "",
+              subtitleUrl: "",
             })}
           >
             <Plus className="w-3.5 h-3.5 mr-1" />

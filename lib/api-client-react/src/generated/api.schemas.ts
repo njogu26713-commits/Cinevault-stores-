@@ -19,6 +19,7 @@ export const MovieQuality = {
 } as const;
 
 export interface Movie {
+  subtitleUrl?: string | null;
   id: string;
   title: string;
   description: string;
@@ -89,6 +90,7 @@ export interface MovieStats {
 }
 
 export interface Episode {
+  subtitleUrl?: string | null;
   episodeNumber: number;
   title: string;
   duration: string;

@@ -242,6 +242,7 @@ export default function WatchMovie() {
                       controls
                       autoPlay
                       className="w-full h-full"
+                      crossOrigin="anonymous"
                       onError={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -254,7 +255,17 @@ export default function WatchMovie() {
                         setPlaying(false);
                       }}
                       style={{ display: "block" }}
-                    />
+                    >
+                      {movie.subtitleUrl && (
+                        <track
+                          kind="subtitles"
+                          src={movie.subtitleUrl}
+                          srcLang="en"
+                          label="English"
+                          default
+                        />
+                      )}
+                    </video>
                   </motion.div>
                 )}
 

@@ -30,6 +30,7 @@ const formSchema = z.object({
   posterUrl: z.string().url("Must be a valid URL"),
   bannerUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   youtubeTrailerId: z.string().optional().or(z.literal("")),
+  subtitleUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   featured: z.boolean().default(false),
   rating: z.coerce.number().min(0).max(10).optional().or(z.literal(0)),
 });
@@ -66,6 +67,7 @@ export function MovieForm() {
       posterUrl: "",
       bannerUrl: "",
       youtubeTrailerId: "",
+      subtitleUrl: "",
       featured: false,
       rating: 0,
     },
@@ -86,6 +88,7 @@ export function MovieForm() {
         posterUrl: movie.posterUrl,
         bannerUrl: movie.bannerUrl || "",
         youtubeTrailerId: movie.youtubeTrailerId || "",
+        subtitleUrl: (movie as any).subtitleUrl || "",
         featured: movie.featured,
         rating: movie.rating || 0,
       });
@@ -156,6 +159,7 @@ export function MovieForm() {
       posterUrl: values.posterUrl,
       bannerUrl: values.bannerUrl || null,
       youtubeTrailerId: ytId || null,
+      subtitleUrl: values.subtitleUrl || null,
       featured: values.featured,
       rating: values.rating || null,
     };
@@ -508,6 +512,19 @@ export function MovieForm() {
                         <FormLabel>YouTube Trailer (URL or ID)</FormLabel>
                         <FormControl><Input placeholder="e.g. dQw4w9WgXcQ" {...field} /></FormControl>
                         <FormDescription>Full URL will be stripped to ID on save</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="subtitleUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subtitle URL (Optional)</FormLabel>
+                        <FormControl><Input placeholder="https://example.com/subtitle.vtt" {...field} /></FormControl>
+                        <FormDescription>Link to a .vtt (WebVTT) subtitle file. Displayed in the player.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

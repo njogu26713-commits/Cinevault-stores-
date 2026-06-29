@@ -16,6 +16,7 @@ export interface IMovie extends Document {
   year: number;
   telegramFileId?: string | null;
   telegramMessageId?: number | null;
+  subtitleUrl?: string | null;
   published?: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +39,7 @@ const MovieSchema = new Schema<IMovie>(
     year: { type: Number, required: true },
     telegramFileId: { type: String, default: null },
     telegramMessageId: { type: Number, default: null },
+    subtitleUrl: { type: String, default: null },
     published: { type: Boolean, default: false },
   },
   { timestamps: true }
