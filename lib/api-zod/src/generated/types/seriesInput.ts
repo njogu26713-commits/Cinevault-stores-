@@ -26,4 +26,5 @@ export interface SeriesInput {
   featured?: boolean;
   seasons?: Season[];
   pricePerSeason: number;
+  pricePerEpisode: number;
 }

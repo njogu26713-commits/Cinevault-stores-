@@ -10,6 +10,9 @@ export type OrderStatus =
 
 export type PaymentStatus = "pending" | "initiated" | "confirmed" | "failed";
 
+export type ContentType = "movie" | "series";
+export type PurchaseType = "stream" | "buy";
+
 export interface IOrder extends Document {
   movieId: string;
   movieTitle: string;
@@ -24,6 +27,10 @@ export interface IOrder extends Document {
   mpesaReceiptNumber?: string | null;
   deliveredAt?: Date | null;
   failureReason?: string | null;
+  contentType: ContentType;
+  purchaseType: PurchaseType;
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,11 +58,16 @@ const OrderSchema = new Schema<IOrder>(
     mpesaReceiptNumber: { type: String, default: null },
     deliveredAt: { type: Date, default: null },
     failureReason: { type: String, default: null },
+    contentType: { type: String, enum: ["movie", "series"], default: "movie" },
+    purchaseType: { type: String, enum: ["stream", "buy"], default: "buy" },
+    seasonNumber: { type: Number, default: null },
+    episodeNumber: { type: Number, default: null },
   },
   { timestamps: true }
 );
 
 OrderSchema.index({ telegramUsername: 1 });
+OrderSchema.index({ movieId: 1, seasonNumber: 1, episodeNumber: 1 });
 OrderSchema.index({ checkoutRequestId: 1 });
 OrderSchema.index({ status: 1 });
 

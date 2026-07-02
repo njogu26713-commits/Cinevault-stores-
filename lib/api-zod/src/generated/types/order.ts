@@ -5,7 +5,9 @@
  * Movie Marketplace API
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderContentType } from './orderContentType';
 import type { OrderPaymentStatus } from './orderPaymentStatus';
+import type { OrderPurchaseType } from './orderPurchaseType';
 import type { OrderStatus } from './orderStatus';
 
 export interface Order {
@@ -28,6 +30,12 @@ export interface Order {
   deliveredAt?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  contentType: OrderContentType;
+  purchaseType: OrderPurchaseType;
+  /** @nullable */
+  seasonNumber?: number | null;
+  /** @nullable */
+  episodeNumber?: number | null;
   createdAt: string;
   updatedAt: string;
 }

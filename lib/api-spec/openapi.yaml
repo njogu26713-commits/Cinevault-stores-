@@ -825,6 +825,8 @@ components:
           type: integer
         pricePerSeason:
           type: number
+        pricePerEpisode:
+          type: number
         seasons:
           type: array
           items:
@@ -844,6 +846,7 @@ components:
         - totalSeasons
         - totalEpisodes
         - pricePerSeason
+        - pricePerEpisode
         - seasons
         - createdAt
 
@@ -882,6 +885,8 @@ components:
             $ref: "#/components/schemas/Season"
         pricePerSeason:
           type: number
+        pricePerEpisode:
+          type: number
       required:
         - title
         - description
@@ -890,6 +895,7 @@ components:
         - quality
         - year
         - pricePerSeason
+        - pricePerEpisode
 
     SeriesListResponse:
       type: object
@@ -943,6 +949,16 @@ components:
           type: ["string", "null"]
         failureReason:
           type: ["string", "null"]
+        contentType:
+          type: string
+          enum: [movie, series]
+        purchaseType:
+          type: string
+          enum: [stream, buy]
+        seasonNumber:
+          type: ["integer", "null"]
+        episodeNumber:
+          type: ["integer", "null"]
         createdAt:
           type: string
         updatedAt:
@@ -957,6 +973,8 @@ components:
         - amount
         - status
         - paymentStatus
+        - contentType
+        - purchaseType
         - createdAt
         - updatedAt
 
@@ -969,6 +987,16 @@ components:
           type: string
         phone:
           type: string
+        contentType:
+          type: string
+          enum: [movie, series]
+        purchaseType:
+          type: string
+          enum: [stream, buy]
+        seasonNumber:
+          type: integer
+        episodeNumber:
+          type: integer
       required:
         - movieId
         - telegramUsername

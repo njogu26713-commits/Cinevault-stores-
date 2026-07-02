@@ -44,7 +44,6 @@ export const ListMoviesResponse = zod.object({
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -70,8 +69,7 @@ export const CreateMovieBody = zod.object({
   "featured": zod.boolean().optional(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 })
 
 export const CreateMovieResponse = zod.object({
@@ -90,7 +88,6 @@ export const CreateMovieResponse = zod.object({
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -114,7 +111,6 @@ export const ListFeaturedMoviesResponseItem = zod.object({
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListFeaturedMoviesResponse = zod.array(ListFeaturedMoviesResponseItem)
@@ -160,7 +156,6 @@ export const GetMovieResponse = zod.object({
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -186,8 +181,7 @@ export const UpdateMovieBody = zod.object({
   "featured": zod.boolean().optional(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 })
 
 export const UpdateMovieResponse = zod.object({
@@ -206,7 +200,6 @@ export const UpdateMovieResponse = zod.object({
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -250,14 +243,14 @@ export const ListSeriesResponse = zod.object({
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
+  "pricePerEpisode": zod.number(),
   "seasons": zod.array(zod.object({
   "seasonNumber": zod.number(),
   "episodes": zod.array(zod.object({
   "episodeNumber": zod.number(),
   "title": zod.string(),
   "duration": zod.string(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 }))
 })),
   "createdAt": zod.string()
@@ -289,11 +282,11 @@ export const CreateSeriesBody = zod.object({
   "episodeNumber": zod.number(),
   "title": zod.string(),
   "duration": zod.string(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 }))
 })).optional(),
-  "pricePerSeason": zod.number()
+  "pricePerSeason": zod.number(),
+  "pricePerEpisode": zod.number()
 })
 
 export const CreateSeriesResponse = zod.object({
@@ -312,14 +305,14 @@ export const CreateSeriesResponse = zod.object({
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
+  "pricePerEpisode": zod.number(),
   "seasons": zod.array(zod.object({
   "seasonNumber": zod.number(),
   "episodes": zod.array(zod.object({
   "episodeNumber": zod.number(),
   "title": zod.string(),
   "duration": zod.string(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 }))
 })),
   "createdAt": zod.string()
@@ -345,14 +338,14 @@ export const ListFeaturedSeriesResponseItem = zod.object({
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
+  "pricePerEpisode": zod.number(),
   "seasons": zod.array(zod.object({
   "seasonNumber": zod.number(),
   "episodes": zod.array(zod.object({
   "episodeNumber": zod.number(),
   "title": zod.string(),
   "duration": zod.string(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 }))
 })),
   "createdAt": zod.string()
@@ -390,14 +383,14 @@ export const GetSeriesResponse = zod.object({
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
+  "pricePerEpisode": zod.number(),
   "seasons": zod.array(zod.object({
   "seasonNumber": zod.number(),
   "episodes": zod.array(zod.object({
   "episodeNumber": zod.number(),
   "title": zod.string(),
   "duration": zod.string(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 }))
 })),
   "createdAt": zod.string()
@@ -429,11 +422,11 @@ export const UpdateSeriesBody = zod.object({
   "episodeNumber": zod.number(),
   "title": zod.string(),
   "duration": zod.string(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 }))
 })).optional(),
-  "pricePerSeason": zod.number()
+  "pricePerSeason": zod.number(),
+  "pricePerEpisode": zod.number()
 })
 
 export const UpdateSeriesResponse = zod.object({
@@ -452,14 +445,14 @@ export const UpdateSeriesResponse = zod.object({
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
+  "pricePerEpisode": zod.number(),
   "seasons": zod.array(zod.object({
   "seasonNumber": zod.number(),
   "episodes": zod.array(zod.object({
   "episodeNumber": zod.number(),
   "title": zod.string(),
   "duration": zod.string(),
-  "telegramFileId": zod.string().nullish(),
-  "subtitleUrl": zod.string().nullish()
+  "telegramFileId": zod.string().nullish()
 }))
 })),
   "createdAt": zod.string()
@@ -482,7 +475,11 @@ export const DeleteSeriesResponse = zod.void()
 export const CreateOrderBody = zod.object({
   "movieId": zod.string(),
   "telegramUsername": zod.string(),
-  "phone": zod.string()
+  "phone": zod.string(),
+  "contentType": zod.enum(['movie', 'series']).optional(),
+  "purchaseType": zod.enum(['stream', 'buy']).optional(),
+  "seasonNumber": zod.number().optional(),
+  "episodeNumber": zod.number().optional()
 })
 
 export const CreateOrderResponse = zod.object({
@@ -500,6 +497,10 @@ export const CreateOrderResponse = zod.object({
   "mpesaReceiptNumber": zod.string().nullish(),
   "deliveredAt": zod.string().nullish(),
   "failureReason": zod.string().nullish(),
+  "contentType": zod.enum(['movie', 'series']),
+  "purchaseType": zod.enum(['stream', 'buy']),
+  "seasonNumber": zod.number().nullish(),
+  "episodeNumber": zod.number().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -527,6 +528,10 @@ export const GetOrderResponse = zod.object({
   "mpesaReceiptNumber": zod.string().nullish(),
   "deliveredAt": zod.string().nullish(),
   "failureReason": zod.string().nullish(),
+  "contentType": zod.enum(['movie', 'series']),
+  "purchaseType": zod.enum(['stream', 'buy']),
+  "seasonNumber": zod.number().nullish(),
+  "episodeNumber": zod.number().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -554,6 +559,10 @@ export const GetUserOrdersResponseItem = zod.object({
   "mpesaReceiptNumber": zod.string().nullish(),
   "deliveredAt": zod.string().nullish(),
   "failureReason": zod.string().nullish(),
+  "contentType": zod.enum(['movie', 'series']),
+  "purchaseType": zod.enum(['stream', 'buy']),
+  "seasonNumber": zod.number().nullish(),
+  "episodeNumber": zod.number().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -612,6 +621,10 @@ export const GetAdminStatsResponse = zod.object({
   "mpesaReceiptNumber": zod.string().nullish(),
   "deliveredAt": zod.string().nullish(),
   "failureReason": zod.string().nullish(),
+  "contentType": zod.enum(['movie', 'series']),
+  "purchaseType": zod.enum(['stream', 'buy']),
+  "seasonNumber": zod.number().nullish(),
+  "episodeNumber": zod.number().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })),
@@ -657,6 +670,10 @@ export const ListAdminOrdersResponse = zod.object({
   "mpesaReceiptNumber": zod.string().nullish(),
   "deliveredAt": zod.string().nullish(),
   "failureReason": zod.string().nullish(),
+  "contentType": zod.enum(['movie', 'series']),
+  "purchaseType": zod.enum(['stream', 'buy']),
+  "seasonNumber": zod.number().nullish(),
+  "episodeNumber": zod.number().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })),

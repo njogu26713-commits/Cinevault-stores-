@@ -30,6 +30,7 @@ export interface ISeries extends Document {
   featured: boolean;
   seasons: ISeason[];
   pricePerSeason: number;
+  pricePerEpisode: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -75,6 +76,7 @@ const SeriesSchema = new Schema<ISeries>(
     featured: { type: Boolean, default: false },
     seasons: [SeasonSchema],
     pricePerSeason: { type: Number, required: true, min: 0 },
+    pricePerEpisode: { type: Number, required: true, min: 0, default: 0 },
   },
   { timestamps: true }
 );

@@ -57,6 +57,7 @@ const seriesSchema = z.object({
   status: z.enum(["Ongoing", "Completed", "Cancelled"]).default("Ongoing"),
   featured: z.boolean().default(false),
   pricePerSeason: z.coerce.number().min(0, "Price required"),
+  pricePerEpisode: z.coerce.number().min(0, "Price required"),
   seasons: z.array(seasonSchema),
 });
 
@@ -113,6 +114,7 @@ export function SeriesForm() {
       status: "Ongoing",
       featured: false,
       pricePerSeason: 0,
+      pricePerEpisode: 0,
       seasons: [],
     },
   });
@@ -163,6 +165,7 @@ export function SeriesForm() {
         status: statusMap[d.status] || "Ongoing",
         featured: d.ai?.featured || false,
         pricePerSeason: d.ai?.suggestedPriceKes || 300,
+        pricePerEpisode: Math.round((d.ai?.suggestedPriceKes || 300) / 6),
         seasons: mappedSeasons,
       });
 
@@ -186,6 +189,7 @@ export function SeriesForm() {
         status: (existing.status as "Ongoing" | "Completed" | "Cancelled") ?? "Ongoing",
         featured: existing.featured ?? false,
         pricePerSeason: existing.pricePerSeason ?? 0,
+        pricePerEpisode: existing.pricePerEpisode ?? 0,
         seasons: existing.seasons?.map((s) => ({
           seasonNumber: s.seasonNumber,
           episodes: s.episodes?.map((e) => ({
@@ -504,7 +508,15 @@ export function SeriesForm() {
 
                 <FormField control={form.control} name="pricePerSeason" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Price per Season (KES)</FormLabel>
+                    <FormLabel>Buy — Price per Season (KES)</FormLabel>
+                    <FormControl><Input type="number" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="pricePerEpisode" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Buy — Price per Episode (KES)</FormLabel>
                     <FormControl><Input type="number" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import { Movie } from "../models/Movie";
+import { Series } from "../models/Series";
 import { Order } from "../models/Order";
 import { initiateSTKPush } from "../services/mpesa";
 import { deliverMovieFromChannel } from "../services/telegram";
@@ -9,6 +10,13 @@ import {
   GetOrderParams,
   GetUserOrdersParams,
 } from "@workspace/api-zod";
+
+/** Streaming purchases are discounted relative to a permanent Telegram-delivered buy. */
+const STREAM_PRICE_MULTIPLIER = 0.6;
+
+function computeStreamPrice(buyPrice: number): number {
+  return Math.max(1, Math.round(buyPrice * STREAM_PRICE_MULTIPLIER));
+}
 
 // Payment bypass: active when MPESA credentials are missing OR PAYMENT_BYPASS=true
 function isPaymentBypassed(): boolean {
@@ -38,29 +46,88 @@ function formatOrder(order: any) {
 // POST /orders — create order + initiate M-Pesa STK push
 router.post("/", async (req, res) => {
   try {
-    const { movieId, telegramUsername, phone } = CreateOrderBody.parse(req.body);
+    const body = CreateOrderBody.parse(req.body);
+    const { movieId, telegramUsername, phone } = body;
+    const contentType = body.contentType ?? "movie";
+    const purchaseType = body.purchaseType ?? "buy";
+    const seasonNumber = body.seasonNumber ?? null;
+    const episodeNumber = body.episodeNumber ?? null;
 
     if (!mongoose.isValidObjectId(movieId)) {
       return res.status(400).json({ error: "Invalid movie ID" });
     }
 
-    const movie = await Movie.findById(movieId).lean();
-    if (!movie) {
-      return res.status(404).json({ error: "Movie not found" });
+    // ── Resolve content, price, and label depending on movie vs. series ──────
+    let title: string;
+    let posterUrl: string;
+    let amount: number;
+    let deliverFileId: string | null = null;
+
+    if (contentType === "series") {
+      const series = await Series.findById(movieId).lean();
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      if (!seasonNumber) {
+        return res.status(400).json({ error: "seasonNumber is required for series orders" });
+      }
+      const season = series.seasons.find((s) => s.seasonNumber === seasonNumber);
+      if (!season) {
+        return res.status(404).json({ error: "Season not found" });
+      }
+
+      if (episodeNumber) {
+        const episode = season.episodes.find((e) => e.episodeNumber === episodeNumber);
+        if (!episode) {
+          return res.status(404).json({ error: "Episode not found" });
+        }
+        amount =
+          purchaseType === "stream"
+            ? computeStreamPrice(series.pricePerEpisode)
+            : series.pricePerEpisode;
+        title = `${series.title} — S${seasonNumber}E${episodeNumber}: ${episode.title}`;
+        deliverFileId = episode.telegramFileId ?? null;
+      } else {
+        amount =
+          purchaseType === "stream"
+            ? computeStreamPrice(series.pricePerSeason)
+            : series.pricePerSeason;
+        title = `${series.title} — Season ${seasonNumber}`;
+        // Whole-season Telegram delivery sends the first episode's file id as a starting point;
+        // remaining episodes are delivered by the admin/bot flow per-episode.
+        deliverFileId = season.episodes[0]?.telegramFileId ?? null;
+      }
+      posterUrl = series.posterUrl;
+    } else {
+      const movie = await Movie.findById(movieId).lean();
+      if (!movie) {
+        return res.status(404).json({ error: "Movie not found" });
+      }
+      title = movie.title;
+      posterUrl = movie.posterUrl;
+      amount = movie.price;
+      deliverFileId = movie.telegramFileId ?? null;
     }
 
     const cleanUsername = telegramUsername.replace(/^@/, "");
 
     const order = await Order.create({
       movieId,
-      movieTitle: movie.title,
-      moviePosterUrl: movie.posterUrl,
+      movieTitle: title,
+      moviePosterUrl: posterUrl,
       telegramUsername: cleanUsername,
       phone,
-      amount: movie.price,
+      amount,
       status: "pending",
       paymentStatus: "pending",
+      contentType,
+      purchaseType,
+      seasonNumber,
+      episodeNumber,
     });
+
+    // Streaming purchases don't get a Telegram file delivery — they just unlock in-app streaming.
+    const shouldDeliverToTelegram = purchaseType === "buy";
 
     // ── BYPASS MODE: auto-confirm and deliver without M-Pesa ─────────────────
     if (isPaymentBypassed()) {
@@ -74,25 +141,27 @@ router.post("/", async (req, res) => {
 
       // Attempt delivery — in bypass mode always mark delivered regardless of Telegram errors
       await Order.findByIdAndUpdate(order._id, { status: "delivering" });
-      try {
-        if (movie.telegramFileId) {
-          await deliverMovieFromChannel({
-            telegramUsername: cleanUsername,
-            telegramFileId: movie.telegramFileId,
-            movieTitle: movie.title,
-            orderId: order._id.toString(),
-          });
-          req.log.info({ orderId: order._id }, "Bypass: movie delivered via Telegram");
-        } else {
-          req.log.warn({ orderId: order._id }, "Bypass: no telegramFileId on movie — skipping Telegram send");
+      if (shouldDeliverToTelegram) {
+        try {
+          if (deliverFileId) {
+            await deliverMovieFromChannel({
+              telegramUsername: cleanUsername,
+              telegramFileId: deliverFileId,
+              movieTitle: title,
+              orderId: order._id.toString(),
+            });
+            req.log.info({ orderId: order._id }, "Bypass: content delivered via Telegram");
+          } else {
+            req.log.warn({ orderId: order._id }, "Bypass: no telegramFileId available — skipping Telegram send");
+          }
+        } catch (deliveryErr: any) {
+          // In bypass mode, Telegram delivery errors (e.g. user hasn't /start-ed the bot) are
+          // non-fatal — the order still counts as delivered so the status page shows success.
+          req.log.warn(
+            { orderId: order._id, reason: deliveryErr?.message },
+            "Bypass: Telegram delivery failed (non-fatal in bypass mode) — order still marked delivered"
+          );
         }
-      } catch (deliveryErr: any) {
-        // In bypass mode, Telegram delivery errors (e.g. user hasn't /start-ed the bot) are
-        // non-fatal — the order still counts as delivered so the status page shows success.
-        req.log.warn(
-          { orderId: order._id, reason: deliveryErr?.message },
-          "Bypass: Telegram delivery failed (non-fatal in bypass mode) — order still marked delivered"
-        );
       }
       await Order.findByIdAndUpdate(order._id, {
         status: "delivered",
@@ -107,9 +176,9 @@ router.post("/", async (req, res) => {
     try {
       const stkResult = await initiateSTKPush({
         phone,
-        amount: movie.price,
+        amount,
         orderId: order._id.toString(),
-        description: `CineVault: ${movie.title.slice(0, 13)}`,
+        description: `CineVault: ${title.slice(0, 13)}`,
       });
 
       order.checkoutRequestId = stkResult.CheckoutRequestID;
@@ -118,7 +187,7 @@ router.post("/", async (req, res) => {
       order.paymentStatus = "initiated";
       await order.save();
 
-      req.log.info({ orderId: order._id, movieTitle: movie.title }, "STK push initiated");
+      req.log.info({ orderId: order._id, movieTitle: title }, "STK push initiated");
     } catch (mpesaErr) {
       req.log.error({ mpesaErr }, "M-Pesa STK push failed");
       order.status = "failed";

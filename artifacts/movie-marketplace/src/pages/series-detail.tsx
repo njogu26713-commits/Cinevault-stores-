@@ -9,7 +9,17 @@ import { Loader2, Star, Calendar, Tv, ChevronDown, ChevronUp, Play, AlertCircle 
 import { motion, AnimatePresence } from "framer-motion";
 import { type Season } from "@workspace/api-client-react";
 
-function SeasonAccordion({ season, pricePerSeason }: { season: Season; pricePerSeason: number }) {
+function SeasonAccordion({
+  season,
+  pricePerSeason,
+  pricePerEpisode,
+  onPurchaseEpisode,
+}: {
+  season: Season;
+  pricePerSeason: number;
+  pricePerEpisode: number;
+  onPurchaseEpisode: (seasonNumber: number, episodeNumber: number) => void;
+}) {
   const [open, setOpen] = useState(season.seasonNumber === 1);
 
   return (
@@ -63,6 +73,12 @@ function SeasonAccordion({ season, pricePerSeason }: { season: Season; pricePerS
                     </p>
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">{ep.duration}</span>
+                  <button
+                    onClick={() => onPurchaseEpisode(season.seasonNumber, ep.episodeNumber)}
+                    className="shrink-0 text-xs font-semibold text-primary hover:underline px-2 py-1"
+                  >
+                    {formatKes(pricePerEpisode)}
+                  </button>
                 </div>
               ))}
             </div>
@@ -76,6 +92,20 @@ function SeasonAccordion({ season, pricePerSeason }: { season: Season; pricePerS
 export default function SeriesDetail() {
   const { id } = useParams<{ id: string }>();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutTarget, setCheckoutTarget] = useState<{ seasonNumber: number; episodeNumber: number | null }>({
+    seasonNumber: 1,
+    episodeNumber: null,
+  });
+
+  const openSeasonCheckout = () => {
+    setCheckoutTarget({ seasonNumber: 1, episodeNumber: null });
+    setCheckoutOpen(true);
+  };
+
+  const openEpisodeCheckout = (seasonNumber: number, episodeNumber: number) => {
+    setCheckoutTarget({ seasonNumber, episodeNumber });
+    setCheckoutOpen(true);
+  };
 
   const { data: series, isLoading, isError } = useGetSeries(id!, {
     query: { enabled: !!id, queryKey: getGetSeriesQueryKey(id!) }
@@ -148,13 +178,13 @@ export default function SeriesDetail() {
                     {series.totalSeasons} season{series.totalSeasons !== 1 ? "s" : ""} · {series.totalEpisodes} episodes total
                   </p>
                   <button
-                    onClick={() => setCheckoutOpen(true)}
+                    onClick={openSeasonCheckout}
                     className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/20"
                   >
-                    Buy a Season
+                    Stream or Buy a Season
                   </button>
                   <p className="text-center text-xs text-muted-foreground mt-4">
-                    Instantly delivered to Telegram
+                    Stream instantly, or buy for permanent Telegram delivery
                   </p>
                 </div>
               </motion.div>
@@ -231,6 +261,8 @@ export default function SeriesDetail() {
                       key={season.seasonNumber}
                       season={season}
                       pricePerSeason={series.pricePerSeason}
+                      pricePerEpisode={series.pricePerEpisode}
+                      onPurchaseEpisode={openEpisodeCheckout}
                     />
                   ))}
                 </div>
@@ -244,6 +276,8 @@ export default function SeriesDetail() {
         series={series}
         isOpen={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
+        initialSeasonNumber={checkoutTarget.seasonNumber}
+        initialEpisodeNumber={checkoutTarget.episodeNumber}
       />
     </Layout>
   );

@@ -19,7 +19,6 @@ export const MovieQuality = {
 } as const;
 
 export interface Movie {
-  subtitleUrl?: string | null;
   id: string;
   title: string;
   description: string;
@@ -90,7 +89,6 @@ export interface MovieStats {
 }
 
 export interface Episode {
-  subtitleUrl?: string | null;
   episodeNumber: number;
   title: string;
   duration: string;
@@ -140,6 +138,7 @@ export interface Series {
   totalSeasons: number;
   totalEpisodes: number;
   pricePerSeason: number;
+  pricePerEpisode: number;
   seasons: Season[];
   createdAt: string;
 }
@@ -179,6 +178,7 @@ export interface SeriesInput {
   featured?: boolean;
   seasons?: Season[];
   pricePerSeason: number;
+  pricePerEpisode: number;
 }
 
 export interface SeriesListResponse {
@@ -210,6 +210,22 @@ export const OrderPaymentStatus = {
   failed: 'failed',
 } as const;
 
+export type OrderContentType = typeof OrderContentType[keyof typeof OrderContentType];
+
+
+export const OrderContentType = {
+  movie: 'movie',
+  series: 'series',
+} as const;
+
+export type OrderPurchaseType = typeof OrderPurchaseType[keyof typeof OrderPurchaseType];
+
+
+export const OrderPurchaseType = {
+  stream: 'stream',
+  buy: 'buy',
+} as const;
+
 export interface Order {
   id: string;
   movieId: string;
@@ -230,14 +246,40 @@ export interface Order {
   deliveredAt?: string | null;
   /** @nullable */
   failureReason?: string | null;
+  contentType: OrderContentType;
+  purchaseType: OrderPurchaseType;
+  /** @nullable */
+  seasonNumber?: number | null;
+  /** @nullable */
+  episodeNumber?: number | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type OrderInputContentType = typeof OrderInputContentType[keyof typeof OrderInputContentType];
+
+
+export const OrderInputContentType = {
+  movie: 'movie',
+  series: 'series',
+} as const;
+
+export type OrderInputPurchaseType = typeof OrderInputPurchaseType[keyof typeof OrderInputPurchaseType];
+
+
+export const OrderInputPurchaseType = {
+  stream: 'stream',
+  buy: 'buy',
+} as const;
 
 export interface OrderInput {
   movieId: string;
   telegramUsername: string;
   phone: string;
+  contentType?: OrderInputContentType;
+  purchaseType?: OrderInputPurchaseType;
+  seasonNumber?: number;
+  episodeNumber?: number;
 }
 
 export type MpesaCallbackInputBody = { [key: string]: unknown };

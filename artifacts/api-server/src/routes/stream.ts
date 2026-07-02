@@ -320,6 +320,29 @@ router.get("/movie/:id", async (req, res) => {
   }
 });
 
+/**
+ * A user may stream an episode if they have a delivered order that either:
+ *  - covers that exact episode (episode-level buy or stream), or
+ *  - covers the whole season it belongs to (season-level buy or stream, episodeNumber unset).
+ */
+async function hasSeriesAccess(
+  telegramUsername: string,
+  seriesId: string,
+  seasonNumber: number,
+  episodeNumber: number
+): Promise<boolean> {
+  const clean = telegramUsername.replace(/^@/, "");
+  const order = await Order.findOne({
+    telegramUsername: clean,
+    movieId: seriesId,
+    contentType: "series",
+    status: "delivered",
+    seasonNumber,
+    $or: [{ episodeNumber }, { episodeNumber: null }],
+  }).lean();
+  return !!order;
+}
+
 // ── GET /api/stream/episode/:seriesId/:seasonIdx/:episodeIdx ──────────────────
 router.get("/episode/:seriesId/:seasonIdx/:episodeIdx", async (req, res) => {
   const { seriesId, seasonIdx, episodeIdx } = req.params;
@@ -344,12 +367,13 @@ router.get("/episode/:seriesId/:seasonIdx/:episodeIdx", async (req, res) => {
   const bypass = process.env["PAYMENT_BYPASS"] === "true";
   const isFreeEpisode = Number(episodeIdx) < FREE_EPISODES_PER_SEASON;
   if (!bypass && !isFreeEpisode) {
-    const order = await Order.findOne({
-      telegramUsername: (username ?? "").replace(/^@/, ""),
+    const owns = await hasSeriesAccess(
+      username ?? "",
       seriesId,
-      status: "delivered",
-    }).lean();
-    if (!order) {
+      season.seasonNumber,
+      episode.episodeNumber
+    );
+    if (!owns) {
       return res.status(403).json({ error: "PURCHASE_REQUIRED", message: "Purchase required to stream this episode." });
     }
   }

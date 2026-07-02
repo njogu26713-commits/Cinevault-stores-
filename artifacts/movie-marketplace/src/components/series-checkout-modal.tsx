@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Smartphone, Send, Loader2, Tv } from "lucide-react";
+import { X, Smartphone, Send, Loader2, Tv, Play, Download } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,9 @@ import { useCreateOrder } from "@workspace/api-client-react";
 import { type Series } from "@workspace/api-client-react";
 import { formatKes } from "../lib/utils";
 import { StatusBadge } from "./series-card";
+
+const STREAM_PRICE_MULTIPLIER = 0.6;
+const computeStreamPrice = (buyPrice: number) => Math.max(1, Math.round(buyPrice * STREAM_PRICE_MULTIPLIER));
 
 const checkoutSchema = z.object({
   telegramUsername: z.string()
@@ -26,20 +29,41 @@ export function SeriesCheckoutModal({
   series,
   isOpen,
   onClose,
+  initialSeasonNumber,
+  initialEpisodeNumber,
 }: {
   series: Series;
   isOpen: boolean;
   onClose: () => void;
+  initialSeasonNumber?: number;
+  initialEpisodeNumber?: number | null;
 }) {
   const [, setLocation] = useLocation();
   const createOrder = useCreateOrder();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState(1);
+  const [selectedSeason, setSelectedSeason] = useState(initialSeasonNumber ?? 1);
+  const [purchaseType, setPurchaseType] = useState<"stream" | "buy">("buy");
+  const [scope, setScope] = useState<"season" | "episode">(initialEpisodeNumber ? "episode" : "season");
+  const [selectedEpisode, setSelectedEpisode] = useState<number | null>(initialEpisodeNumber ?? null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedSeason(initialSeasonNumber ?? 1);
+    setScope(initialEpisodeNumber ? "episode" : "season");
+    setSelectedEpisode(initialEpisodeNumber ?? null);
+    setPurchaseType("buy");
+  }, [isOpen, initialSeasonNumber, initialEpisodeNumber]);
 
   const { register, handleSubmit, formState: { errors } } = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: { telegramUsername: "@", phone: "", seasonNumber: 1 },
   });
+
+  const currentSeason = series.seasons.find((s) => s.seasonNumber === selectedSeason);
+  const episodeNumberToUse = scope === "episode" ? (selectedEpisode ?? currentSeason?.episodes[0]?.episodeNumber ?? null) : null;
+
+  const buyPrice = scope === "episode" ? series.pricePerEpisode : series.pricePerSeason;
+  const price = purchaseType === "stream" ? computeStreamPrice(buyPrice) : buyPrice;
 
   const onSubmit = (data: CheckoutForm) => {
     setServerError(null);
@@ -49,6 +73,10 @@ export function SeriesCheckoutModal({
           movieId: series.id,           // series ID used as content reference
           telegramUsername: data.telegramUsername,
           phone: data.phone,
+          contentType: "series",
+          purchaseType,
+          seasonNumber: selectedSeason,
+          ...(episodeNumberToUse ? { episodeNumber: episodeNumberToUse } : {}),
         },
       },
       {
@@ -85,8 +113,12 @@ export function SeriesCheckoutModal({
               {/* Header */}
               <div className="p-6 pb-0 flex justify-between items-start">
                 <div>
-                  <h2 className="text-xl font-bold text-foreground">Purchase Season</h2>
-                  <p className="text-sm text-muted-foreground mt-1">Instant delivery to your Telegram</p>
+                  <h2 className="text-xl font-bold text-foreground">
+                    {scope === "episode" ? "Purchase Episode" : "Purchase Season"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {purchaseType === "stream" ? "Stream instantly on CineVault" : "Instant delivery to your Telegram"}
+                  </p>
                 </div>
                 <button
                   onClick={onClose}
@@ -110,7 +142,12 @@ export function SeriesCheckoutModal({
                   <p className="text-xs text-muted-foreground mt-1">
                     {series.totalSeasons} seasons · {series.totalEpisodes} episodes
                   </p>
-                  <p className="text-xl font-black text-primary mt-1">{formatKes(series.pricePerSeason)}<span className="text-sm font-normal text-muted-foreground">/season</span></p>
+                  <p className="text-xl font-black text-primary mt-1">
+                    {formatKes(price)}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      /{scope === "episode" ? "episode" : "season"} · {purchaseType === "stream" ? "stream" : "buy"}
+                    </span>
+                  </p>
                 </div>
               </div>
 
@@ -120,6 +157,71 @@ export function SeriesCheckoutModal({
                     {serverError}
                   </div>
                 )}
+
+                {/* Stream vs Buy */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">How do you want to watch?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPurchaseType("stream")}
+                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
+                        purchaseType === "stream"
+                          ? "bg-primary text-white border-primary"
+                          : "bg-muted text-muted-foreground border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <Play size={14} />
+                      Stream
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPurchaseType("buy")}
+                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
+                        purchaseType === "buy"
+                          ? "bg-primary text-white border-primary"
+                          : "bg-muted text-muted-foreground border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <Download size={14} />
+                      Buy
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {purchaseType === "stream"
+                      ? "Cheaper — unlocks in-app streaming only, no Telegram file."
+                      : "Full price — file is delivered to your Telegram and unlocks streaming too."}
+                  </p>
+                </div>
+
+                {/* Whole season vs single episode */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">What do you want?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setScope("season")}
+                      className={`px-3 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
+                        scope === "season"
+                          ? "bg-primary text-white border-primary"
+                          : "bg-muted text-muted-foreground border-border hover:border-primary/50"
+                      }`}
+                    >
+                      Whole Season
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScope("episode")}
+                      className={`px-3 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
+                        scope === "episode"
+                          ? "bg-primary text-white border-primary"
+                          : "bg-muted text-muted-foreground border-border hover:border-primary/50"
+                      }`}
+                    >
+                      Single Episode
+                    </button>
+                  </div>
+                </div>
 
                 {/* Season picker */}
                 <div className="space-y-1.5">
@@ -132,7 +234,7 @@ export function SeriesCheckoutModal({
                       <button
                         key={s.seasonNumber}
                         type="button"
-                        onClick={() => setSelectedSeason(s.seasonNumber)}
+                        onClick={() => { setSelectedSeason(s.seasonNumber); setSelectedEpisode(null); }}
                         className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
                           selectedSeason === s.seasonNumber
                             ? "bg-primary text-white border-primary"
@@ -146,6 +248,32 @@ export function SeriesCheckoutModal({
                   </div>
                   <input type="hidden" {...register("seasonNumber", { valueAsNumber: true })} value={selectedSeason} />
                 </div>
+
+                {/* Episode picker (only when scope === episode) */}
+                {scope === "episode" && currentSeason && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Play size={14} className="text-primary" />
+                      Select Episode
+                    </label>
+                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
+                      {currentSeason.episodes.map(ep => (
+                        <button
+                          key={ep.episodeNumber}
+                          type="button"
+                          onClick={() => setSelectedEpisode(ep.episodeNumber)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                            (selectedEpisode ?? currentSeason.episodes[0]?.episodeNumber) === ep.episodeNumber
+                              ? "bg-primary text-white border-primary"
+                              : "bg-muted text-muted-foreground border-border hover:border-primary/50"
+                          }`}
+                        >
+                          E{ep.episodeNumber}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Telegram username */}
                 <div className="space-y-1.5">
@@ -196,7 +324,7 @@ export function SeriesCheckoutModal({
                       Initiating Payment...
                     </>
                   ) : (
-                    `Pay ${formatKes(series.pricePerSeason)} with M-Pesa`
+                    `Pay ${formatKes(price)} with M-Pesa`
                   )}
                 </button>
               </form>

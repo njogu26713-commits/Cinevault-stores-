@@ -28,6 +28,7 @@ export interface Series {
   totalSeasons: number;
   totalEpisodes: number;
   pricePerSeason: number;
+  pricePerEpisode: number;
   seasons: Season[];
   createdAt: string;
 }

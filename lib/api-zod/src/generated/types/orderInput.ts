@@ -5,9 +5,15 @@
  * Movie Marketplace API
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderInputContentType } from './orderInputContentType';
+import type { OrderInputPurchaseType } from './orderInputPurchaseType';
 
 export interface OrderInput {
   movieId: string;
   telegramUsername: string;
   phone: string;
+  contentType?: OrderInputContentType;
+  purchaseType?: OrderInputPurchaseType;
+  seasonNumber?: number;
+  episodeNumber?: number;
 }
