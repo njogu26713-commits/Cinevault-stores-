@@ -26,4 +26,6 @@ export interface MovieInput {
   year: number;
   /** @nullable */
   telegramFileId?: string | null;
+  /** @nullable */
+  subtitleUrl?: string | null;
 }

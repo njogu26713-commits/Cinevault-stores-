@@ -38,6 +38,8 @@ export interface Movie {
   year: number;
   /** @nullable */
   telegramFileId?: string | null;
+  /** @nullable */
+  subtitleUrl?: string | null;
   createdAt: string;
 }
 
@@ -69,6 +71,8 @@ export interface MovieInput {
   year: number;
   /** @nullable */
   telegramFileId?: string | null;
+  /** @nullable */
+  subtitleUrl?: string | null;
 }
 
 export interface MovieListResponse {
@@ -94,6 +98,8 @@ export interface Episode {
   duration: string;
   /** @nullable */
   telegramFileId?: string | null;
+  /** @nullable */
+  subtitleUrl?: string | null;
 }
 
 export interface Season {

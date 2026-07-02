@@ -12,4 +12,6 @@ export interface Episode {
   duration: string;
   /** @nullable */
   telegramFileId?: string | null;
+  /** @nullable */
+  subtitleUrl?: string | null;
 }

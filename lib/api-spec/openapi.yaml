@@ -661,6 +661,8 @@ components:
           type: integer
         telegramFileId:
           type: ["string", "null"]
+        subtitleUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
       required:
@@ -710,6 +712,8 @@ components:
         year:
           type: integer
         telegramFileId:
+          type: ["string", "null"]
+        subtitleUrl:
           type: ["string", "null"]
       required:
         - title
@@ -769,6 +773,8 @@ components:
         duration:
           type: string
         telegramFileId:
+          type: ["string", "null"]
+        subtitleUrl:
           type: ["string", "null"]
       required:
         - episodeNumber

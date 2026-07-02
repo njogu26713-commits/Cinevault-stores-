@@ -27,5 +27,7 @@ export interface Movie {
   year: number;
   /** @nullable */
   telegramFileId?: string | null;
+  /** @nullable */
+  subtitleUrl?: string | null;
   createdAt: string;
 }
