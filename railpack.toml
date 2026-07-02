@@ -1,11 +1,14 @@
-[phases.setup]
+[build]
 nixPkgs = ["nodejs_20"]
-cmds = ["npm install -g pnpm@10"]
 
-[phases.install]
+[build.packageManager]
+name = "pnpm"
+version = "10"
+
+[build.phases.install]
 cmds = ["pnpm install --frozen-lockfile"]
 
-[phases.build]
+[build.phases.build]
 cmds = [
   "PORT=5000 BASE_PATH=/ pnpm --filter @workspace/movie-marketplace run build",
   "BASE_PATH=/admin/ pnpm --filter @workspace/admin-dashboard run build",
@@ -14,3 +17,4 @@ cmds = [
 
 [start]
 cmd = "node artifacts/api-server/dist/index.mjs"
+
