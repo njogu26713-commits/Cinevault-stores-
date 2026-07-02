@@ -14,10 +14,18 @@ import OpenAI from "openai";
 const CHUNK_SIZE = 512 * 1024; // 512 KB — matches stream.ts
 const GROQ_LIMIT = 24 * 1024 * 1024; // 24 MB Whisper safety limit
 
-const groq = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
+let _groq: OpenAI | null = null;
+function getGroq(): OpenAI {
+  if (!_groq) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      logger.error("GROQ_API_KEY is not configured — subtitle transcription unavailable");
+      throw new Error("Transcription service is not configured on this server");
+    }
+    _groq = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
+  }
+  return _groq;
+}
 
 // ── SSE helper ────────────────────────────────────────────────────────────
 function sse(res: import("express").Response, event: string, data: object) {
@@ -155,7 +163,7 @@ async function transcribeChunk(
   audioPath: string,
   offsetSeconds: number
 ): Promise<{ start: number; end: number; text: string }[]> {
-  const result: any = await groq.audio.transcriptions.create({
+  const result: any = await getGroq().audio.transcriptions.create({
     file: createReadStream(audioPath) as any,
     model: "whisper-large-v3-turbo",
     response_format: "verbose_json" as any,
