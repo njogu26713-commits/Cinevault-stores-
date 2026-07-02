@@ -1,0 +1,47 @@
+Railway deployment failed — Build Error
+
+This service is configured to deploy the @workspace/api-client-react shared library, which has no server entry point or start command. Railpack failed because it could not detect how to start a library package in a pnpm monorepo. A railway.json with proper build and start configuration exists on the main branch, but it was added in a later commit that was skipped due to the watchPatterns restriction on this service.
+
+Repository: https://github.com/njogu26713-commits/Cinevault-stores-
+Branch: main · Commit: ab936a9 — Add user auth, reviews, movie requests, notifications system
+
+- New models: User, Review, MovieRequest, Notification
+- New routes: user auth, reviews (CRUD + likes/replies/reports),
+  movie requests (CRUD + voting), notifications, admin moderation
+- New middleware: userAuth (JWT cookie for marketplace users)
+- New frontend: login, register, review section, notification bell,
+  movie requests page, user auth context
+Deployment ID: ae40157b-7422-4e37-bb3f-9863f8410867
+Service ID: d3321ff9-f4ac-4caa-8abc-6a0744c83a27
+Environment ID: fb4ce803-0d1f-423b-9fb3-56aad6760fd7
+
+---
+
+## Problem
+Service @workspace/api-client-react is a REPO service using the Railpack builder. The build fails at the start command detection stage with "No start command detected." The deployed commit (ab936a92) does not include the railway.json or the start script in package.json that were added in the subsequent commit (c06c33ae). The watchPatterns config (['/lib/api-client-react/**']) caused the fix commit to be SKIPPED.
+
+## Diagnosis
+The root package.json at the failing commit is missing the "start" script. The railway.json (which specifies NIXPACKS builder and a startCommand) was not present at this commit. Even on HEAD, the railway.json exists but the package.json start script may be missing. Railpack checks for a start script in package.json, a main field, or an index.js/index.ts — none of these are present for this library package.
+
+## Fix
+1. File: `package.json` (repo root)
+   Current scripts section:
+   ```json
+   "scripts": {
+     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; ...",
+     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+     "typecheck:libs": "tsc --build",
+     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+   }
+   ```
+   Replace with (add start script):
+   ```json
+   "scripts": {
+     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; ...",
+     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+     "typecheck:libs": "tsc --build",
+     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+     "start": "node artifacts/api-server/dist/index.mjs"
+   }
+   ```
+   This ensures Railpack can detect the start command even without railway.json, and aligns with the start script added in the fix commit (c06c33ae).
