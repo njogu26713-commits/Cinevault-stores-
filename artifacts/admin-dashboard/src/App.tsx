@@ -15,6 +15,8 @@ import { Settings } from "@/pages/settings";
 import { AiFeatures } from "@/pages/ai-features";
 import { Research } from "@/pages/research";
 import { TelegramConnect } from "@/pages/telegram-connect";
+import { Moderation } from "@/pages/moderation";
+import { AdminRequests } from "@/pages/admin-requests";
 import { Login } from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -48,6 +50,8 @@ function ProtectedRouter() {
         <Route path="/series/:id/edit" component={SeriesForm} />
         <Route path="/orders" component={Orders} />
         <Route path="/users" component={Users} />
+        <Route path="/moderation" component={Moderation} />
+        <Route path="/requests" component={AdminRequests} />
         <Route path="/settings" component={Settings} />
         <Route path="/ai" component={AiFeatures} />
         <Route path="/research" component={Research} />

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Film, Tv, ShoppingCart, Users, Settings, Sparkles, Menu, Video, Search, LogOut, Wifi, WifiOff } from "lucide-react";
+import { LayoutDashboard, Film, Tv, ShoppingCart, Users, Settings, Sparkles, Menu, Video, Search, LogOut, Wifi, WifiOff, Flag, Clapperboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -46,6 +46,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: "Series", href: "/series", icon: Tv },
     { name: "Orders", href: "/orders", icon: ShoppingCart },
     { name: "Users", href: "/users", icon: Users },
+    { name: "Moderation", href: "/moderation", icon: Flag },
+    { name: "Requests", href: "/requests", icon: Clapperboard },
     { name: "Settings", href: "/settings", icon: Settings },
     { name: "AI Features", href: "/ai", icon: Sparkles },
   ];

@@ -9,7 +9,11 @@ import OrderStatus from './pages/order-status';
 import Purchases from './pages/purchases';
 import WatchMovie from './pages/watch';
 import WatchEpisode from './pages/watch-episode';
+import Login from './pages/login';
+import Register from './pages/register';
+import Requests from './pages/requests';
 import { Layout } from './components/layout';
+import { UserAuthProvider } from './contexts/user-auth';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +49,9 @@ function Router() {
       <Route path="/purchases" component={Purchases} />
       <Route path="/watch/:id" component={WatchMovie} />
       <Route path="/watch/episode/:id/:seasonIdx/:episodeIdx" component={WatchEpisode} />
+      <Route path="/requests" component={Requests} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -54,7 +61,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-        <Router />
+        <UserAuthProvider>
+          <Router />
+        </UserAuthProvider>
       </WouterRouter>
     </QueryClientProvider>
   );
