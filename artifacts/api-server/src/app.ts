@@ -37,13 +37,22 @@ app.use("/api", router);
 
 if (process.env.NODE_ENV === "production") {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const dashboardDist = path.resolve(__dirname, "../../admin-dashboard/dist/public");
   const fs = await import("fs");
-  if (fs.existsSync(dashboardDist)) {
-    app.use(express.static(dashboardDist));
+
+  const adminDist = path.resolve(__dirname, "../../admin-dashboard/dist/public");
+  if (fs.existsSync(adminDist)) {
+    app.use("/admin", express.static(adminDist));
+    app.get("/admin/{*path}", (_req, res) => {
+      res.sendFile(path.join(adminDist, "index.html"));
+    });
+  }
+
+  const marketplaceDist = path.resolve(__dirname, "../../movie-marketplace/dist/public");
+  if (fs.existsSync(marketplaceDist)) {
+    app.use(express.static(marketplaceDist));
     app.get("/{*path}", (req, res, next) => {
-      if (req.path.startsWith("/api")) return next();
-      res.sendFile(path.join(dashboardDist, "index.html"));
+      if (req.path.startsWith("/api") || req.path.startsWith("/admin")) return next();
+      res.sendFile(path.join(marketplaceDist, "index.html"));
     });
   }
 }
