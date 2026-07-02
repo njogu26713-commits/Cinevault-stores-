@@ -10,8 +10,9 @@ export default function OrderStatus() {
   const { data: order, isLoading } = useGetOrder(id!, {
     query: {
       enabled: !!id,
-      refetchInterval: (data) => {
-        if (data?.status === 'delivered' || data?.status === 'failed') return false;
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        if (status === 'delivered' || status === 'failed') return false;
         return 3000;
       },
       queryKey: getGetOrderQueryKey(id!)

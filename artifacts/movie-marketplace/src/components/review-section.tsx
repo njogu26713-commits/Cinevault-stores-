@@ -146,8 +146,8 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formRating) return toast.error("Please select a star rating");
-    if (formText.trim().length < 10) return toast.error("Review must be at least 10 characters");
+    if (!formRating) { toast.error("Please select a star rating"); return; }
+    if (formText.trim().length < 10) { toast.error("Review must be at least 10 characters"); return; }
     setSubmitting(true);
     try {
       const res = await fetch("/api/reviews", {
@@ -169,7 +169,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
   };
 
   const handleLike = async (reviewId: string) => {
-    if (!user) return toast.error("Sign in to like reviews");
+    if (!user) { toast.error("Sign in to like reviews"); return; }
     const res = await fetch(`/api/reviews/${reviewId}/like`, { method: "POST" });
     if (!res.ok) return;
     const data = await res.json();
@@ -179,7 +179,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
   const handleDelete = async (reviewId: string) => {
     if (!confirm("Delete your review?")) return;
     const res = await fetch(`/api/reviews/${reviewId}`, { method: "DELETE" });
-    if (!res.ok) return toast.error("Failed to delete");
+    if (!res.ok) { toast.error("Failed to delete"); return; }
     setReviews((prev) => prev.filter((r) => r._id !== reviewId));
     setAggRating((r) => ({ ...r, count: Math.max(0, r.count - 1) }));
     toast.success("Review deleted");
@@ -210,14 +210,14 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
   };
 
   const handleReport = async (reviewId: string) => {
-    if (!user) return toast.error("Sign in to report");
+    if (!user) { toast.error("Sign in to report"); return; }
     const res = await fetch(`/api/reviews/${reviewId}/report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: "Inappropriate content" }),
     });
     const data = await res.json();
-    if (!res.ok) return toast.error(data.error ?? "Failed");
+    if (!res.ok) { toast.error(data.error ?? "Failed"); return; }
     setReviews((prev) => prev.map((r) => r._id === reviewId ? { ...r, reported: true } : r));
     toast.success("Reported — thanks for keeping things civil");
   };
@@ -245,7 +245,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
 
   const handleDeleteReply = async (reviewId: string, replyId: string) => {
     const res = await fetch(`/api/reviews/${reviewId}/replies/${replyId}`, { method: "DELETE" });
-    if (!res.ok) return toast.error("Failed to delete reply");
+    if (!res.ok) { toast.error("Failed to delete reply"); return; }
     setReviews((prev) => prev.map((r) => r._id === reviewId ? { ...r, replies: r.replies.filter((rep) => rep._id !== replyId) } : r));
   };
 

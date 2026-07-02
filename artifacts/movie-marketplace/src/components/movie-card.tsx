@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
-import { type Movie } from "@workspace/api-client-react/src/generated/api.schemas";
+import { type Movie } from "@workspace/api-client-react";
 import { formatKes, cn } from "../lib/utils";
 
 export const QualityBadge = ({ quality, className }: { quality: string, className?: string }) => {

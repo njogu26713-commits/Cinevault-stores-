@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { useState } from "react";
-import { useGetMovie, getGetMovieQueryKey, useListMovies } from "@workspace/api-client-react";
+import { useGetMovie, getGetMovieQueryKey, useListMovies, getListMoviesQueryKey } from "@workspace/api-client-react";
 import { Layout } from "../components/layout";
 import { QualityBadge, MovieCard } from "../components/movie-card";
 import { CheckoutModal } from "../components/checkout-modal";
@@ -18,7 +18,7 @@ export default function MovieDetail() {
   });
 
   const { data: relatedRes } = useListMovies({ genre: movie?.genre[0], limit: 5 }, {
-    query: { enabled: !!movie?.genre[0] }
+    query: { enabled: !!movie?.genre[0], queryKey: getListMoviesQueryKey({ genre: movie?.genre[0], limit: 5 }) }
   });
 
   if (isLoading) {
@@ -80,7 +80,7 @@ export default function MovieDetail() {
                   </div>
 
                   {/* Watch button — shown when movie has a Telegram file attached */}
-                  {movie.telegramMessageId && (
+                  {movie.telegramFileId && (
                     <button
                       onClick={() => navigate(`/watch/${id}`)}
                       className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 mb-3"
@@ -97,7 +97,7 @@ export default function MovieDetail() {
                     Buy Now
                   </button>
                   <p className="text-center text-xs text-muted-foreground mt-4">
-                    {movie.telegramMessageId ? "Stream online or get it on Telegram" : "Instantly delivered to Telegram"}
+                    {movie.telegramFileId ? "Stream online or get it on Telegram" : "Instantly delivered to Telegram"}
                   </p>
                 </div>
               </motion.div>

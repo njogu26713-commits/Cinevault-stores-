@@ -1,0 +1,58 @@
+pnpm run build
+10s
+> workspace@0.0.0 build /app
+> pnpm run typecheck && pnpm -r --if-present run build
+> workspace@0.0.0 typecheck /app
+> pnpm run typecheck:libs && pnpm -r --filter "./artifacts/**" --filter "./scripts" --if-present run typecheck
+> workspace@0.0.0 typecheck:libs /app
+> tsc --build
+Scope: 5 of 12 workspace projects
+artifacts/admin-dashboard typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/api-server typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/mockup-sandbox typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/movie-marketplace typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/api-server typecheck: Done
+scripts typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/mockup-sandbox typecheck: Done
+scripts typecheck: Done
+artifacts/movie-marketplace typecheck: src/components/checkout-modal.tsx(9,28): error TS2307: Cannot find module '@workspace/api-client-react/src/generated/api.schemas' or its corresponding type declarations.
+
+artifacts/movie-marketplace typecheck: src/components/movie-card.tsx(4,28): error TS2307: Cannot find module '@workspace/api-client-react/src/generated/api.schemas' or its corresponding type declarations.
+
+artifacts/movie-marketplace typecheck: src/components/review-section.tsx(147,30): error TS7030: Not all code paths return a value.
+
+artifacts/movie-marketplace typecheck: src/components/review-section.tsx(171,22): error TS7030: Not all code paths return a value.
+
+artifacts/movie-marketplace typecheck: src/components/review-section.tsx(179,24): error TS7030: Not all code paths return a value.
+
+artifacts/movie-marketplace typecheck: src/components/review-section.tsx(212,24): error TS7030: Not all code paths return a value.
+
+artifacts/movie-marketplace typecheck: src/components/review-section.tsx(246,29): error TS7030: Not all code paths return a value.
+
+artifacts/movie-marketplace typecheck: src/components/series-card.tsx(4,29): error TS2307: Cannot find module '@workspace/api-client-react/src/generated/api.schemas' or its corresponding type declarations.
+
+artifacts/movie-marketplace typecheck: src/components/series-checkout-modal.tsx(9,29): error TS2307: Cannot find module '@workspace/api-client-react/src/generated/api.schemas' or its corresponding type declarations.
+
+artifacts/movie-marketplace typecheck: src/components/series-checkout-modal.tsx(131,41): error TS7006: Parameter 's' implicitly has an 'any' type.
+
+artifacts/movie-marketplace typecheck: src/pages/movie-detail.tsx(21,5): error TS2741: Property 'queryKey' is missing in type '{ enabled: boolean; }' but required in type 'UseQueryOptions<MovieListResponse, ErrorType<unknown>, MovieListResponse, readonly unknown[]>'.
+
+artifacts/movie-marketplace typecheck: src/pages/movie-detail.tsx(83,26): error TS2339: Property 'telegramMessageId' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/movie-detail.tsx(100,28): error TS2339: Property 'telegramMessageId' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/order-status.tsx(14,19): error TS2339: Property 'status' does not exist on type 'Query<Order, ErrorType<unknown>, Order, readonly unknown[]>'.
+
+artifacts/movie-marketplace typecheck: src/pages/order-status.tsx(14,51): error TS2339: Property 'status' does not exist on type 'Query<Order, ErrorType<unknown>, Order, readonly unknown[]>'.
+
+artifacts/movie-marketplace typecheck: src/pages/series-detail.tsx(10,29): error TS2307: Cannot find module '@workspace/api-client-react/src/generated/api.schemas' or its corresponding type declarations.
+
+artifacts/movie-marketplace typecheck: src/pages/series-detail.tsx(52,36): error TS7006: Parameter 'ep' implicitly has an 'any' type.
+
+artifacts/movie-marketplace typecheck: Failed
+/app/artifacts/movie-marketplace:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/movie-marketplace@0.0.0 typecheck: tsc -p tsconfig.json --noEmit
+Exit status 2
+ ELIFECYCLE  Command failed with exit code 2.
+ ELIFECYCLE  Command failed with exit code 2.
+Build Failed: build daemon returned an error < failed to solve: process "pnpm run build" did not complete

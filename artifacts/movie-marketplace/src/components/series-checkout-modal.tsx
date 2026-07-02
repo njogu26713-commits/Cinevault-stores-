@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreateOrder } from "@workspace/api-client-react";
-import { type Series } from "@workspace/api-client-react/src/generated/api.schemas";
+import { type Series } from "@workspace/api-client-react";
 import { formatKes } from "../lib/utils";
 import { StatusBadge } from "./series-card";
 

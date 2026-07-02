@@ -7,7 +7,7 @@ import { SeriesCheckoutModal } from "../components/series-checkout-modal";
 import { formatKes } from "../lib/utils";
 import { Loader2, Star, Calendar, Tv, ChevronDown, ChevronUp, Play, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { type Season } from "@workspace/api-client-react/src/generated/api.schemas";
+import { type Season } from "@workspace/api-client-react";
 
 function SeasonAccordion({ season, pricePerSeason }: { season: Season; pricePerSeason: number }) {
   const [open, setOpen] = useState(season.seasonNumber === 1);

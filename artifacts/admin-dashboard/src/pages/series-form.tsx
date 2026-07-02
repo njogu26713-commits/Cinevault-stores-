@@ -208,7 +208,7 @@ export function SeriesForm() {
     if (!title) { toast({ title: "Enter a title first", variant: "destructive" }); return; }
     setGeneratingDesc(true);
     generateDesc.mutate(
-      { data: { title, genre, year: Number(year), existingDescription: form.getValues("description") } },
+      { data: { title, genre: genre.split(",").map((g: string) => g.trim()).filter(Boolean), year: Number(year), existingDescription: form.getValues("description") } },
       {
         onSuccess: (data: any) => {
           form.setValue("description", data.text ?? "");

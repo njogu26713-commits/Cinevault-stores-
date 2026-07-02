@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Star, Tv } from "lucide-react";
-import { type Series } from "@workspace/api-client-react/src/generated/api.schemas";
+import { type Series } from "@workspace/api-client-react";
 import { formatKes, cn } from "../lib/utils";
 
 export const StatusBadge = ({ status, className }: { status: string; className?: string }) => {
