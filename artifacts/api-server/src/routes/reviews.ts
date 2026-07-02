@@ -9,7 +9,7 @@ const router = Router();
 
 async function notify(userId: string, type: string, message: string, relatedId?: string) {
   try {
-    await Notification.create({ userId, type, message, read: false, relatedId: relatedId ?? null });
+    await Notification.create({ userId, type, message, read: false, relatedId: relatedId ?? null } as any);
   } catch (err) {
     logger.error({ err }, "Failed to create notification");
   }
@@ -19,7 +19,7 @@ async function notify(userId: string, type: string, message: string, relatedId?:
 router.get("/:contentType/:contentId", optionalUserAuth, async (req, res) => {
   try {
     const { contentType, contentId } = req.params;
-    if (!["movie", "series"].includes(contentType)) {
+    if (!(["movie", "series"] as string[]).includes(String(contentType))) {
       return res.status(400).json({ error: "Invalid content type" });
     }
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -27,12 +27,12 @@ router.get("/:contentType/:contentId", optionalUserAuth, async (req, res) => {
     const skip = (page - 1) * limit;
 
     const [reviews, total, ratingAgg] = await Promise.all([
-      Review.find({ contentType, contentId })
+      Review.find({ contentType, contentId } as any)
         .sort({ pinned: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Review.countDocuments({ contentType, contentId }),
+      Review.countDocuments({ contentType, contentId } as any),
       Review.aggregate([
         { $match: { contentType, contentId } },
         { $group: { _id: null, avg: { $avg: "$rating" }, count: { $sum: 1 } } },
@@ -67,7 +67,7 @@ router.post("/", requireUserAuth, async (req, res) => {
     if (!contentType || !contentId || !rating || !text) {
       return res.status(400).json({ error: "contentType, contentId, rating and text are required" });
     }
-    if (!["movie", "series"].includes(contentType)) {
+    if (!(["movie", "series"] as string[]).includes(contentType)) {
       return res.status(400).json({ error: "Invalid content type" });
     }
     const r = Number(rating);

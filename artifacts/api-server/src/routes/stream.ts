@@ -118,7 +118,7 @@ async function streamViaGramJS(
     let result: Api.upload.File;
     try {
       result = (await client.invoke(
-        new Api.upload.GetFile({ location, offset: BigInt(offset), limit: CHUNK_SIZE, cdn: false })
+        new Api.upload.GetFile({ location, offset: BigInt(offset) as any, limit: CHUNK_SIZE })
       )) as Api.upload.File;
     } catch (err: any) {
       logger.warn({ err, offset }, "GramJS GetFile chunk error");
@@ -171,7 +171,7 @@ async function streamViaBotAPI(
   const contentLength = end - start + 1;
 
   res.status(206);
-  res.setHeader("Content-Type", axRes.headers["content-type"] || "video/mp4");
+  res.setHeader("Content-Type", (axRes.headers["content-type"] as string) || "video/mp4");
   res.setHeader("Content-Length", contentLength);
   res.setHeader("Accept-Ranges", "bytes");
   res.setHeader("Cache-Control", "no-store");
@@ -307,6 +307,7 @@ router.get("/movie/:id", async (req, res) => {
     }
 
     await streamViaBotAPI(movie.telegramFileId, start, end, res);
+    return;
   } catch (err: any) {
     logger.error({ err, movieId: id }, "Streaming failed");
     if (!res.headersSent) {
@@ -315,6 +316,7 @@ router.get("/movie/:id", async (req, res) => {
         message: "File is too large for the Bot API (>20 MB). Go to Admin → Telegram Connect and sign in to stream large files.",
       });
     }
+    return;
   }
 });
 
@@ -386,11 +388,13 @@ router.get("/episode/:seriesId/:seasonIdx/:episodeIdx", async (req, res) => {
   try {
     const { start, end } = parseRange(rangeHeader, 20 * 1024 * 1024);
     await streamViaBotAPI(episode.telegramFileId, start, end, res);
+    return;
   } catch (err: any) {
     logger.error({ err }, "Episode streaming failed");
     if (!res.headersSent) {
       return res.status(500).json({ error: "Streaming unavailable" });
     }
+    return;
   }
 });
 

@@ -14,7 +14,7 @@ function tmdbKey(): string {
   return k;
 }
 
-async function tmdbGet(path: string, params: Record<string, string> = {}) {
+async function tmdbGet(path: string, params: Record<string, string> = {}): Promise<any> {
   const url = new URL(`${TMDB_BASE}${path}`);
   url.searchParams.set("api_key", tmdbKey());
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);

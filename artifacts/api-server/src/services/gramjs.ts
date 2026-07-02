@@ -254,7 +254,7 @@ export async function authVerifyPassword(password: string): Promise<void> {
 
 export async function authDisconnect(): Promise<void> {
   if (_client) {
-    try { await _client.invoke(new Api.auth.LogOut({})); } catch {}
+    try { await _client.invoke(new Api.auth.LogOut() as any); } catch {}
     await _client.disconnect().catch(() => {});
     _client = null;
   }

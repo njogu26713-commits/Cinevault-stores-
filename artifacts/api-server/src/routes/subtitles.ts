@@ -68,7 +68,7 @@ async function downloadToTempFile(
     let done = 0;
     while (offset < totalSize) {
       const result = (await client.invoke(
-        new Api.upload.GetFile({ location, offset: BigInt(offset), limit: CHUNK_SIZE, cdn: false })
+        new Api.upload.GetFile({ location, offset: BigInt(offset) as any, limit: CHUNK_SIZE })
       )) as Api.upload.File;
       const bytes = Buffer.from(result.bytes);
       if (!bytes.length) break;
@@ -263,11 +263,13 @@ adminSubtitleRouter.post("/movie/:id", async (req, res) => {
     await Movie.findByIdAndUpdate(req.params.id, { subtitleVtt: vtt, subtitleStatus: "ready" });
     sse(res, "done", { message: "Subtitles ready" });
     res.end();
+    return;
   } catch (err: any) {
     logger.error({ err }, "Movie subtitle generation failed");
     await Movie.findByIdAndUpdate(req.params.id, { subtitleStatus: "error" }).catch(() => {});
     sse(res, "error", { message: err.message ?? "Generation failed" });
     res.end();
+    return;
   }
 });
 
@@ -304,10 +306,12 @@ adminSubtitleRouter.post("/episode/:seriesId/:seasonNum/:episodeNum", async (req
 
     sse(res, "done", { message: "Subtitles ready" });
     res.end();
+    return;
   } catch (err: any) {
     logger.error({ err }, "Episode subtitle generation failed");
     sse(res, "error", { message: err.message ?? "Generation failed" });
     res.end();
+    return;
   }
 });
 
@@ -323,8 +327,8 @@ subtitleServeRouter.get("/movie/:id", async (req, res) => {
     if (!(movie as any)?.subtitleVtt) return res.status(404).end();
     res.setHeader("Content-Type", "text/vtt; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send((movie as any).subtitleVtt);
-  } catch { res.status(500).end(); }
+    return res.send((movie as any).subtitleVtt);
+  } catch { return res.status(500).end(); }
 });
 
 // GET /subtitle/episode/:seriesId/:seasonNum/:episodeNum
@@ -339,6 +343,6 @@ subtitleServeRouter.get("/episode/:seriesId/:seasonNum/:episodeNum", async (req,
     if (!(ep as any)?.subtitleVtt) return res.status(404).end();
     res.setHeader("Content-Type", "text/vtt; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send((ep as any).subtitleVtt);
-  } catch { res.status(500).end(); }
+    return res.send((ep as any).subtitleVtt);
+  } catch { return res.status(500).end(); }
 });

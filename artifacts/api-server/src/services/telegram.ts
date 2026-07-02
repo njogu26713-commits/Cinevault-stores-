@@ -103,7 +103,7 @@ export async function startBotPolling(): Promise<void> {
   }
 
   // ── /start ─────────────────────────────────────────────────────────────────
-  bot.onText(/\/start/, (msg) => {
+  bot!.onText(/\/start/, (msg) => {
     bot!.sendMessage(
       msg.chat.id,
       "👋 Welcome to *CineVault Bot*!\n\nForward me any movie/episode file from your channel and I'll reply with its *File ID* so you can paste it into the admin dashboard.\n\nOr use *Sync Telegram* in the admin panel to auto-assign files to movies automatically.",
@@ -112,7 +112,7 @@ export async function startBotPolling(): Promise<void> {
   });
 
   // ── /getfileid ─────────────────────────────────────────────────────────────
-  bot.onText(/\/getfileid/, (msg) => {
+  bot!.onText(/\/getfileid/, (msg) => {
     bot!.sendMessage(
       msg.chat.id,
       "📎 Forward or send me a file (video or document) and I'll reply with its *File ID*.",
@@ -121,7 +121,7 @@ export async function startBotPolling(): Promise<void> {
   });
 
   // ── Direct messages (file forwarded to bot) ────────────────────────────────
-  bot.on("message", (msg) => {
+  bot!.on("message", (msg) => {
     const doc = msg.document;
     const vid = msg.video;
     const fileId = doc?.file_id || vid?.file_id || msg.audio?.file_id || msg.animation?.file_id;
@@ -139,7 +139,7 @@ export async function startBotPolling(): Promise<void> {
   });
 
   // ── Channel posts (bot is admin of the channel) ────────────────────────────
-  bot.on("channel_post", (msg) => {
+  bot!.on("channel_post", (msg) => {
     const doc = msg.document;
     const vid = msg.video;
     const fileId = doc?.file_id || vid?.file_id || msg.audio?.file_id || msg.animation?.file_id;
@@ -170,7 +170,7 @@ export async function startBotPolling(): Promise<void> {
     );
   });
 
-  bot.on("polling_error", (err: any) => {
+  bot!.on("polling_error", (err: any) => {
     const is409 = err?.message?.includes("409") || err?.code === "ETELEGRAM";
     if (is409) {
       // Telegram keeps old sessions alive briefly after restart — ignore until it clears

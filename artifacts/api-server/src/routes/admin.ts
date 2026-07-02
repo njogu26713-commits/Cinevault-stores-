@@ -705,8 +705,8 @@ router.get("/ai/analytics", async (_req, res) => {
       Order.aggregate([
         { $match: { paymentStatus: "confirmed" } },
         { $lookup: { from: "movies", localField: "movieId", foreignField: "_id", as: "movie" } },
-        { $unwind: { path: "$movie", preserveNullAndEmpty: true } },
-        { $unwind: { path: "$movie.genre", preserveNullAndEmpty: true } },
+        { $unwind: { path: "$movie", preserveNullAndEmptyArrays: true } },
+        { $unwind: { path: "$movie.genre", preserveNullAndEmptyArrays: true } },
         {
           $group: {
             _id: "$movie.genre",

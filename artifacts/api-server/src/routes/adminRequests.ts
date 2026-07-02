@@ -30,7 +30,7 @@ router.get("/", async (req, res) => {
         { $skip: skip },
         { $limit: limit },
       ]),
-      MovieRequest.countDocuments(match),
+      MovieRequest.countDocuments(match as any),
     ]);
 
     return res.json({

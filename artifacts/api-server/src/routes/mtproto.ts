@@ -199,6 +199,7 @@ router.post(
           fs.unlink(file.path, () => {});
         }
       });
+      return;
     } catch (err: any) {
       fs.unlink(file.path, () => {});
       logger.error({ err, movieId: id }, "MTProto movie upload init failed");
@@ -306,6 +307,7 @@ router.post(
           fs.unlink(file.path, () => {});
         }
       });
+      return;
     } catch (err: any) {
       fs.unlink(file.path, () => {});
       return res.status(500).json({ error: err.message ?? "Upload failed" });

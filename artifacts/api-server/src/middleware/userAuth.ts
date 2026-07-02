@@ -34,7 +34,7 @@ export function requireUserAuth(req: Request, res: Response, next: NextFunction)
   if (!token) return res.status(401).json({ error: "Authentication required" });
   try {
     req.user = jwt.verify(token, getUserSecret()) as UserTokenPayload;
-    next();
+    return next();
   } catch {
     res.clearCookie(USER_COOKIE);
     return res.status(401).json({ error: "Invalid or expired session" });
