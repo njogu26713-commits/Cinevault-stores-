@@ -18,7 +18,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col">
+    <div className="min-h-[100dvh] bg-background px-2 sm:px-3 lg:px-5">
+    <div className="min-h-[100dvh] flex flex-col max-w-[1600px] mx-auto overflow-hidden rounded-sm shadow-xl">
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
@@ -54,6 +55,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </p>
         </div>
       </footer>
+    </div>
     </div>
   );
 }
