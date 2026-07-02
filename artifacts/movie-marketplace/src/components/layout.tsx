@@ -20,7 +20,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] flex flex-col">
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="bg-primary text-white p-1.5 rounded-lg group-hover:scale-105 transition-transform">
               <Film size={20} className="fill-current" />
@@ -43,7 +43,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="border-t border-border py-8 mt-12 bg-card">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Film size={18} />
             <span className="font-semibold text-foreground">CineVault</span>

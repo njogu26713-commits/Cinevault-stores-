@@ -99,7 +99,7 @@ export default function Home() {
 
                 {/* Content */}
                 <div className="absolute inset-0 flex items-center">
-                  <div className="container mx-auto px-4">
+                  <div className="container mx-auto px-6">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -173,7 +173,7 @@ export default function Home() {
       </section>
 
       {/* Main Content */}
-      <section className="container mx-auto px-4 py-12 -mt-8 relative z-10">
+      <section className="container mx-auto px-6 py-12 -mt-8 relative z-10">
 
         {/* Stats & Genres */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">

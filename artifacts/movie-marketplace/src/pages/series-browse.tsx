@@ -16,7 +16,7 @@ export default function SeriesBrowse() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-10">
+      <div className="container mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>

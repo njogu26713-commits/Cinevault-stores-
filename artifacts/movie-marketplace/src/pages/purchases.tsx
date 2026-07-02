@@ -30,7 +30,7 @@ export default function Purchases() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
+      <div className="container mx-auto px-6 py-12 max-w-4xl">
         <div className="text-center mb-12">
           <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-6 text-muted-foreground">
             <History size={32} />
