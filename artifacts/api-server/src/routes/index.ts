@@ -13,6 +13,14 @@ import streamRouter from "./stream";
 import { adminSubtitleRouter, subtitleServeRouter } from "./subtitles";
 import { requireAdminAuth } from "../middleware/adminAuth";
 
+// New community feature routes
+import userAuthRouter from "./userAuth";
+import reviewsRouter from "./reviews";
+import movieRequestsRouter from "./movieRequests";
+import notificationsRouter from "./notifications";
+import adminReviewsRouter from "./adminReviews";
+import adminRequestsRouter from "./adminRequests";
+
 const router: IRouter = Router();
 
 router.get("/", (_req, res) => {
@@ -31,6 +39,20 @@ router.use("/subtitle", subtitleServeRouter);
 
 // Auth routes (public — no JWT required)
 router.use("/admin/auth", authRouter);
+
+// ── Community: user auth (public) ────────────────────────────────────────────
+router.use("/user/auth", userAuthRouter);
+
+// ── Community: reviews & requests (mixed auth — routes handle individually) ──
+router.use("/reviews", reviewsRouter);
+router.use("/requests", movieRequestsRouter);
+
+// ── Community: notifications (requires user JWT — handled inside route) ─────
+router.use("/notifications", notificationsRouter);
+
+// ── Admin: community moderation ───────────────────────────────────────────────
+router.use("/admin/reviews", requireAdminAuth, adminReviewsRouter);
+router.use("/admin/requests", requireAdminAuth, adminRequestsRouter);
 
 // All other /admin routes require a valid JWT cookie
 router.use("/admin/research", requireAdminAuth, researchRouter);
