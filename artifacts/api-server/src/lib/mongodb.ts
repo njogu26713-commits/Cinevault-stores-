@@ -3,6 +3,8 @@ import { logger } from "./logger";
 
 let isConnected = false;
 
+mongoose.set("bufferCommands", false);
+
 export async function connectMongoDB(): Promise<void> {
   if (isConnected) return;
 
