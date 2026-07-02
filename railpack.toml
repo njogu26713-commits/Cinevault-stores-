@@ -1,0 +1,7 @@
+[options]
+installCmd = "pnpm install --no-frozen-lockfile"
+buildCmd = "PORT=5000 BASE_PATH=/ pnpm --filter @workspace/movie-marketplace run build && BASE_PATH=/admin/ pnpm --filter @workspace/admin-dashboard run build && pnpm --filter @workspace/api-server run build"
+startCmd = "node artifacts/api-server/dist/index.mjs"
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "nodePackages.pnpm"]
