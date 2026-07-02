@@ -1,0 +1,39 @@
+pnpm run build
+11s
+> workspace@0.0.0 build /app
+> pnpm run typecheck && pnpm -r --if-present run build
+> workspace@0.0.0 typecheck /app
+> pnpm run typecheck:libs && pnpm -r --filter "./artifacts/**" --filter "./scripts" --if-present run typecheck
+> workspace@0.0.0 typecheck:libs /app
+> tsc --build
+Scope: 5 of 12 workspace projects
+artifacts/admin-dashboard typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/api-server typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/mockup-sandbox typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/movie-marketplace typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/api-server typecheck: Done
+scripts typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/mockup-sandbox typecheck: Done
+scripts typecheck: Done
+artifacts/movie-marketplace typecheck: Done
+artifacts/admin-dashboard typecheck: Done
+Scope: 11 of 12 workspace projects
+artifacts/mockup-sandbox build$ vite build
+artifacts/mockup-sandbox build: failed to load config from /app/artifacts/mockup-sandbox/vite.config.ts
+artifacts/mockup-sandbox build: error during build:
+artifacts/mockup-sandbox build: Error: PORT environment variable is required but was not provided.
+artifacts/mockup-sandbox build:     at file:///app/artifacts/mockup-sandbox/node_modules/.vite-temp/vite.config.ts.timestamp-1783008843688-89a8ed76d2e04.mjs:145:9
+artifacts/mockup-sandbox build:     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+artifacts/mockup-sandbox build:     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+artifacts/mockup-sandbox build:     at async loadConfigFromBundledFile (file:///app/node_modules/.pnpm/vite@7.3.5_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_tsx@4.22.4_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:35996:12)
+artifacts/mockup-sandbox build:     at async bundleAndLoadConfigFile (file:///app/node_modules/.pnpm/vite@7.3.5_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_tsx@4.22.4_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:35884:17)
+artifacts/mockup-sandbox build:     at async loadConfigFromFile (file:///app/node_modules/.pnpm/vite@7.3.5_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_tsx@4.22.4_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:35851:42)
+artifacts/mockup-sandbox build:     at async resolveConfig (file:///app/node_modules/.pnpm/vite@7.3.5_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_tsx@4.22.4_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:35500:22)
+artifacts/mockup-sandbox build:     at async createBuilder (file:///app/node_modules/.pnpm/vite@7.3.5_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_tsx@4.22.4_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:33955:19)
+artifacts/mockup-sandbox build:     at async CAC.<anonymous> (file:///app/node_modules/.pnpm/vite@7.3.5_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_tsx@4.22.4_yaml@2.9.0/node_modules/vite/dist/node/cli.js:629:10)
+artifacts/mockup-sandbox build: Failed
+/app/artifacts/mockup-sandbox:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/mockup-sandbox@2.0.0 build: `vite build`
+Exit status 1
+ ELIFECYCLE  Command failed with exit code 1.
+Build Failed: build daemon returned an error < failed to solve: process "pnpm run build" did not complete successfully: exit code: 1 >
