@@ -48,7 +48,7 @@ router.get("/", async (req, res) => {
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { comingSoon: { $ne: true } };
     if (query.genre) filter["genre"] = { $in: [query.genre] };
     if (query.quality) filter["quality"] = query.quality;
     if ((query as any).status) filter["status"] = (query as any).status;
