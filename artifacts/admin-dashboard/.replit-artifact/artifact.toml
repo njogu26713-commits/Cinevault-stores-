@@ -18,7 +18,7 @@ localPort = 22133
 run = "pnpm --filter @workspace/admin-dashboard run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/admin-dashboard", "run", "build" ]
+build = [ "bash", "-c", "BASE_PATH=/admin/ NODE_ENV=production pnpm --filter @workspace/admin-dashboard run build" ]
 publicDir = "artifacts/admin-dashboard/dist/public"
 serve = "static"
 
