@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { Movie } from "../models/Movie";
 import { Series } from "../models/Series";
 import { Order } from "../models/Order";
+import { MovieNotification } from "../models/MovieNotification";
 import { getTelegramBot, getChannelFileBuffer, removeFromChannelBuffer, deliverMovieFromChannel } from "../services/telegram";
 import { logger } from "../lib/logger";
 import { getSetting, saveSettings } from "../lib/settings-store";
@@ -912,4 +913,44 @@ router.post("/orders/:id/redeliver", async (req, res) => {
   }
 });
 
+// GET /admin/movie-notifications — all coming-soon subscribers grouped by movie
+router.get("/movie-notifications", async (req, res) => {
+  try {
+    // Get all notifications with movie info joined
+    const notifications = await MovieNotification.find({}).sort({ createdAt: -1 }).lean();
+    const movieIds = [...new Set(notifications.map((n) => n.movieId.toString()))];
+    const movies = await Movie.find({ _id: { $in: movieIds } })
+      .select("title posterUrl comingSoon")
+      .lean();
+
+    const movieMap = new Map(movies.map((m) => [m._id.toString(), m]));
+
+    const grouped = movieIds
+      .map((movieId) => {
+        const movie = movieMap.get(movieId);
+        if (!movie) return null;
+        const subs = notifications.filter((n) => n.movieId.toString() === movieId);
+        return {
+          movieId,
+          movieTitle: movie.title,
+          posterUrl: (movie as any).posterUrl ?? "",
+          pendingCount: subs.filter((s) => !s.notifiedAt).length,
+          notifiedCount: subs.filter((s) => !!s.notifiedAt).length,
+          subscribers: subs.map((s) => ({
+            telegramUsername: s.telegramUsername,
+            notifiedAt: s.notifiedAt ? s.notifiedAt.toISOString() : null,
+            createdAt: (s as any).createdAt?.toISOString?.() ?? "",
+          })),
+        };
+      })
+      .filter(Boolean);
+
+    return res.json(grouped);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch movie notifications");
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
+
