@@ -462,7 +462,7 @@ export default function WatchMovie() {
     query: { enabled: !!id, queryKey: getGetMovieQueryKey(id!) },
   });
   const { data: moviesData } = useListMovies({ limit: 6 });
-  const recommendations = (moviesData?.movies ?? []).filter((m) => m._id !== id).slice(0, 6);
+  const recommendations = (moviesData?.movies ?? []).filter((m) => m.id !== id).slice(0, 6);
 
   const streamUrl = `/api/stream/movie/${id}${username ? `?username=${encodeURIComponent(username)}` : ""}`;
 
@@ -562,7 +562,7 @@ export default function WatchMovie() {
             <VideoPlayer
               src={streamUrl}
               poster={movie.bannerUrl || movie.posterUrl}
-              subtitleUrl={movie.subtitleUrl}
+              subtitleUrl={movie.subtitleUrl ?? undefined}
               onError={setVideoError}
               onBack={() => navigate(`/movie/${id}`)}
             />
@@ -584,12 +584,12 @@ export default function WatchMovie() {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/40">
                   {movie.year && <span>{movie.year}</span>}
-                  {movie.imdbRating && (
+                  {movie.rating && (
                     <>
                       <span className="w-1 h-1 rounded-full bg-white/20" />
                       <span className="flex items-center gap-1">
                         <Star size={12} className="fill-amber-400 text-amber-400" />
-                        <span className="text-white/60 font-medium">{movie.imdbRating}</span>
+                        <span className="text-white/60 font-medium">{movie.rating}</span>
                       </span>
                     </>
                   )}
@@ -606,9 +606,9 @@ export default function WatchMovie() {
                     </>
                   )}
                 </div>
-                {movie.genres && movie.genres.length > 0 && (
+                {movie.genre && movie.genre.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {movie.genres.map((g) => (
+                    {movie.genre.map((g: string) => (
                       <span key={g} className="px-2.5 py-1 bg-white/[0.06] rounded-full text-xs text-white/60">
                         {g}
                       </span>
@@ -688,7 +688,7 @@ export default function WatchMovie() {
             {/* Right column */}
             <div className="space-y-5">
               {/* File info */}
-              {(movie.size || movie.quality) && (
+              {(movie.fileSize || movie.quality) && (
                 <div className="rounded-2xl bg-zinc-900/60 border border-white/[0.06] px-4 py-3 space-y-1">
                   <p className="text-white/40 text-xs uppercase tracking-wider">File Info</p>
                   {movie.quality && (
@@ -696,9 +696,9 @@ export default function WatchMovie() {
                       <span>Quality</span><span className="text-primary font-medium">{movie.quality}</span>
                     </p>
                   )}
-                  {movie.size && (
+                  {movie.fileSize && (
                     <p className="text-white/70 text-sm flex items-center justify-between">
-                      <span>Size</span><span className="text-white/50">{movie.size}</span>
+                      <span>Size</span><span className="text-white/50">{movie.fileSize}</span>
                     </p>
                   )}
                   {movie.duration && (
@@ -715,7 +715,7 @@ export default function WatchMovie() {
                   <h3 className="text-white font-semibold text-sm mb-3">More Like This</h3>
                   <div className="grid grid-cols-2 gap-3">
                     {recommendations.map((m) => (
-                      <Link key={m._id} href={`/movie/${m._id}`} className="group block cursor-pointer">
+                      <Link key={m.id} href={`/movie/${m.id}`} className="group block cursor-pointer">
                         <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-800 mb-2">
                           <img
                             src={m.posterUrl}
@@ -723,10 +723,10 @@ export default function WatchMovie() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                           <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
-                          {m.imdbRating && (
+                          {m.rating && (
                             <div className="absolute bottom-1.5 right-1.5 bg-black/70 rounded px-1.5 py-0.5 text-xs text-amber-400 font-medium flex items-center gap-0.5">
                               <Star size={9} className="fill-amber-400" />
-                              {m.imdbRating}
+                              {m.rating}
                             </div>
                           )}
                         </div>

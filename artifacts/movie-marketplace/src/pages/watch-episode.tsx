@@ -499,7 +499,7 @@ export default function WatchEpisode() {
     query: { enabled: !!id, queryKey: getGetSeriesQueryKey(id!) },
   });
   const { data: seriesListData } = useListSeries({ limit: 6 });
-  const recommendations = (seriesListData?.series ?? []).filter((s) => s._id !== id).slice(0, 6);
+  const recommendations = (seriesListData?.series ?? []).filter((s) => s.id !== id).slice(0, 6);
 
   const season = series?.seasons?.[sIdx];
   const episode = season?.episodes?.[eIdx];
@@ -586,7 +586,7 @@ export default function WatchEpisode() {
             <VideoPlayer
               src={streamUrl}
               poster={series.bannerUrl || series.posterUrl}
-              subtitleUrl={episode.subtitleUrl}
+              subtitleUrl={episode.subtitleUrl ?? undefined}
               resumeAt={savedProgress}
               progressKey={progressKey(id!, sIdx, eIdx)}
               onError={setVideoError}
@@ -638,26 +638,23 @@ export default function WatchEpisode() {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/40">
                   <span className="font-semibold text-white/70">{series.title}</span>
                   {series.year && <><span className="w-1 h-1 rounded-full bg-white/20" /><span>{series.year}</span></>}
-                  {series.imdbRating && (
+                  {series.rating && (
                     <><span className="w-1 h-1 rounded-full bg-white/20" />
                     <span className="flex items-center gap-1">
                       <Star size={12} className="fill-amber-400 text-amber-400" />
-                      <span className="text-white/60 font-medium">{series.imdbRating}</span>
+                      <span className="text-white/60 font-medium">{series.rating}</span>
                     </span></>
                   )}
                   {episode.duration && <><span className="w-1 h-1 rounded-full bg-white/20" /><span>{episode.duration}</span></>}
                 </div>
-                {series.genres && series.genres.length > 0 && (
+                {series.genre && series.genre.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {series.genres.map((g: string) => (
+                    {series.genre.map((g: string) => (
                       <span key={g} className="px-2.5 py-1 bg-white/[0.06] rounded-full text-xs text-white/60">{g}</span>
                     ))}
                   </div>
                 )}
-                {episode.description && (
-                  <p className="text-white/60 text-sm leading-relaxed">{episode.description}</p>
-                )}
-                {!episode.description && series.description && (
+                {series.description && (
                   <p className="text-white/50 text-sm leading-relaxed">{series.description}</p>
                 )}
               </div>
@@ -746,7 +743,7 @@ export default function WatchEpisode() {
                   <h3 className="text-white font-semibold text-sm mb-3">More Series</h3>
                   <div className="grid grid-cols-2 gap-3">
                     {recommendations.map((s) => (
-                      <Link key={s._id} href={`/series/${s._id}`} className="group block">
+                      <Link key={s.id} href={`/series/${s.id}`} className="group block">
                         <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-800 mb-2">
                           <img
                             src={s.posterUrl}
@@ -754,10 +751,10 @@ export default function WatchEpisode() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                           <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
-                          {s.imdbRating && (
+                          {s.rating && (
                             <div className="absolute bottom-1.5 right-1.5 bg-black/70 rounded px-1.5 py-0.5 text-xs text-amber-400 font-medium flex items-center gap-0.5">
                               <Star size={9} className="fill-amber-400" />
-                              {s.imdbRating}
+                              {s.rating}
                             </div>
                           )}
                         </div>

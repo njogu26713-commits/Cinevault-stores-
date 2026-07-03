@@ -1,0 +1,62 @@
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(641,27): error TS2339: Property 'imdbRating' does not exist on type 'Series'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(645,75): error TS2339: Property 'imdbRating' does not exist on type 'Series'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(650,25): error TS2551: Property 'genres' does not exist on type 'Series'. Did you mean 'genre'?
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(650,42): error TS2551: Property 'genres' does not exist on type 'Series'. Did you mean 'genre'?
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(652,29): error TS2551: Property 'genres' does not exist on type 'Series'. Did you mean 'genre'?
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(657,26): error TS2339: Property 'description' does not exist on type 'Episode'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(658,81): error TS2339: Property 'description' does not exist on type 'Episode'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(660,27): error TS2339: Property 'description' does not exist on type 'Episode'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(749,36): error TS2339: Property '_id' does not exist on type 'Series'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(749,60): error TS2339: Property '_id' does not exist on type 'Series'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(757,30): error TS2339: Property 'imdbRating' does not exist on type 'Series'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch-episode.tsx(760,34): error TS2339: Property 'imdbRating' does not exist on type 'Series'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(465,70): error TS2339: Property '_id' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(565,15): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+
+artifacts/movie-marketplace typecheck:   Type 'null' is not assignable to type 'string | undefined'.
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(587,26): error TS2339: Property 'imdbRating' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(592,76): error TS2339: Property 'imdbRating' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(609,24): error TS2551: Property 'genres' does not exist on type 'Movie'. Did you mean 'genre'?
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(609,40): error TS2551: Property 'genres' does not exist on type 'Movie'. Did you mean 'genre'?
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(611,28): error TS2551: Property 'genres' does not exist on type 'Movie'. Did you mean 'genre'?
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(611,40): error TS7006: Parameter 'g' implicitly has an 'any' type.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(691,23): error TS2339: Property 'size' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(699,26): error TS2339: Property 'size' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(701,79): error TS2339: Property 'size' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(718,36): error TS2339: Property '_id' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(718,59): error TS2339: Property '_id' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(726,30): error TS2339: Property 'imdbRating' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: src/pages/watch.tsx(729,34): error TS2339: Property 'imdbRating' does not exist on type 'Movie'.
+
+artifacts/movie-marketplace typecheck: Failed
+/app/artifacts/movie-marketplace:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/movie-marketplace@0.0.0 typecheck: `tsc -p tsconfig.json --noEmit`
+Exit status 2
+ ELIFECYCLE  Command failed with exit code 2.
+ ELIFECYCLE  Command failed with exit code 2.
+Build Failed: build daemon returned an error < failed to solve: process "pnpm run build" did not complete successfully: exit code: 2 >
