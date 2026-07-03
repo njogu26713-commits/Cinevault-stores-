@@ -502,11 +502,15 @@ export async function uploadFileToChannel(
         entity = await _client.getEntity(channelIdStr);
       }
 
-      // Try as video first; fall back to document if Telegram rejects the media type
-      const tryAsVideo = isVideo && videoMeta !== null;
+      // Always try as video for video files — even if ffprobe failed (zero dimensions still
+      // give native Telegram video player, whereas forceDocument gives a blue file icon).
+      const tryAsVideo = isVideo;
+      // Use probed metadata if available; fall back to safe zeros so the video attribute is
+      // still attached and Telegram stores it as a video type.
+      const effectiveMeta: VideoMeta = videoMeta ?? { duration: 0, width: 0, height: 0 };
       let result: any;
       try {
-        result = await doSendFile(entity, filePath, caption, stat, fileSizeMB, jobId, tryAsVideo, videoMeta, thumbPath);
+        result = await doSendFile(entity, filePath, caption, stat, fileSizeMB, jobId, tryAsVideo, effectiveMeta, thumbPath);
       } catch (mediaErr: any) {
         const mediaMsg: string = mediaErr?.message ?? mediaErr?.errorMessage ?? "";
         if (
