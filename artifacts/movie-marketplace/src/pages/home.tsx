@@ -1,20 +1,121 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Film, PlayCircle, Loader2, ChevronLeft, ChevronRight,
-  Star, Clock, Download, Sparkles, Search, X
+  Star, Download, Sparkles, Search, X, Flame, Clock3,
 } from "lucide-react";
 import {
   useListMovies,
   useListFeaturedMovies,
   useListGenres,
   useGetMovieStats,
-  getListMoviesQueryKey
+  getListMoviesQueryKey,
+  type Movie,
 } from "@workspace/api-client-react";
 import { Layout } from "../components/layout";
 import { MovieCard } from "../components/movie-card";
 import { formatKes } from "../lib/utils";
+
+// ── Horizontal scrollable row ──────────────────────────────────────────────────
+
+function MovieRow({
+  title,
+  icon,
+  movies,
+  startIndex = 0,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  movies: Movie[];
+  startIndex?: number;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(sectionRef, { once: true, margin: "-80px" });
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(true);
+
+  const checkScroll = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 8);
+    setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+  }, []);
+
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    return () => el.removeEventListener("scroll", checkScroll);
+  }, [checkScroll, movies]);
+
+  const scroll = (dir: "left" | "right") => {
+    const el = rowRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "right" ? 600 : -600, behavior: "smooth" });
+  };
+
+  if (!movies.length) return null;
+
+  return (
+    <motion.section
+      ref={sectionRef}
+      initial={{ opacity: 0, y: 36 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      className="mb-10"
+    >
+      {/* Row header */}
+      <div className="flex items-center justify-between px-8 mb-4">
+        <div className="flex items-center gap-2.5">
+          {icon && <span className="text-primary">{icon}</span>}
+          <h2 className="text-lg font-black text-white tracking-tight">{title}</h2>
+          <span className="text-xs text-white/25 font-medium mt-0.5">{movies.length} titles</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => scroll("left")}
+            disabled={!canLeft}
+            className="w-8 h-8 rounded-full border border-white/12 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 hover:bg-white/8 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={() => scroll("right")}
+            disabled={!canRight}
+            className="w-8 h-8 rounded-full border border-white/12 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 hover:bg-white/8 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable track */}
+      <div className="relative">
+        {/* Left fade */}
+        <div className={`absolute left-0 top-0 bottom-6 w-16 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none transition-opacity duration-200 ${canLeft ? "opacity-100" : "opacity-0"}`} />
+        {/* Right fade */}
+        <div className={`absolute right-0 top-0 bottom-6 w-16 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none transition-opacity duration-200 ${canRight ? "opacity-100" : "opacity-0"}`} />
+
+        <div
+          ref={rowRef}
+          className="flex gap-4 overflow-x-auto scrollbar-hide px-8 pb-2"
+          style={{ scrollSnapType: "x mandatory" }}
+        >
+          {movies.map((movie, i) => (
+            <div key={movie.id} className="w-[160px] sm:w-[180px] md:w-[200px]" style={{ scrollSnapAlign: "start", flexShrink: 0 }}>
+              <MovieCard movie={movie} index={startIndex + i} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const [selectedGenre, setSelectedGenre] = useState<string | undefined>();
@@ -23,7 +124,6 @@ export default function Home() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [direction, setDirection] = useState(1);
 
-  // Debounce search — wait 350ms after user stops typing
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery), 350);
     return () => clearTimeout(t);
@@ -33,10 +133,49 @@ export default function Home() {
   const { data: genres } = useListGenres();
   const { data: stats } = useGetMovieStats();
 
-  const { data: moviesRes, isLoading: loadingMovies } = useListMovies(
-    { genre: selectedGenre, search: debouncedSearch || undefined },
-    { query: { queryKey: getListMoviesQueryKey({ genre: selectedGenre, search: debouncedSearch || undefined }) } }
+  // Fetch all movies for row grouping
+  const { data: allMoviesRes, isLoading: loadingAll } = useListMovies(
+    {},
+    { query: { queryKey: getListMoviesQueryKey({}) } }
   );
+
+  // Filtered movies (when searching / genre selected)
+  const { data: filteredRes, isLoading: loadingFiltered } = useListMovies(
+    { genre: selectedGenre, search: debouncedSearch || undefined },
+    {
+      query: {
+        queryKey: getListMoviesQueryKey({ genre: selectedGenre, search: debouncedSearch || undefined }),
+        enabled: !!(selectedGenre || debouncedSearch),
+      },
+    }
+  );
+
+  const allMovies = allMoviesRes?.movies ?? [];
+  const filteredMovies = filteredRes?.movies ?? [];
+
+  // Group all movies by genre for rows
+  const genreRows = (() => {
+    const map: Record<string, Movie[]> = {};
+    allMovies.forEach((m) => {
+      m.genre?.forEach((g) => {
+        if (!map[g]) map[g] = [];
+        map[g].push(m);
+      });
+    });
+    return Object.entries(map)
+      .filter(([, ms]) => ms.length >= 2)
+      .sort(([, a], [, b]) => b.length - a.length);
+  })();
+
+  // Recently added: sorted by MongoDB ObjectId (encodes creation time) — newest first
+  const recentlyAdded = [...allMovies]
+    .sort((a, b) => {
+      // ObjectId first 4 bytes = unix timestamp — lexicographic desc gives newest first
+      const tsA = a.id ? parseInt(a.id.slice(0, 8), 16) : 0;
+      const tsB = b.id ? parseInt(b.id.slice(0, 8), 16) : 0;
+      return tsB - tsA;
+    })
+    .slice(0, 20);
 
   const total = featuredMovies?.length ?? 0;
 
@@ -44,16 +183,8 @@ export default function Home() {
     setDirection(dir);
     setHeroIndex(index);
   }, []);
-
-  const prev = useCallback(() => {
-    if (!total) return;
-    goTo((heroIndex - 1 + total) % total, -1);
-  }, [heroIndex, total, goTo]);
-
-  const next = useCallback(() => {
-    if (!total) return;
-    goTo((heroIndex + 1) % total, 1);
-  }, [heroIndex, total, goTo]);
+  const prev = useCallback(() => { if (!total) return; goTo((heroIndex - 1 + total) % total, -1); }, [heroIndex, total, goTo]);
+  const next = useCallback(() => { if (!total) return; goTo((heroIndex + 1) % total, 1); }, [heroIndex, total, goTo]);
 
   useEffect(() => {
     if (!total) return;
@@ -63,16 +194,19 @@ export default function Home() {
 
   const heroMovie = featuredMovies?.[heroIndex];
 
-  const variants = {
+  const slideVariants = {
     enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
     center: { x: 0, opacity: 1 },
     exit: (dir: number) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
   };
 
+  const isFiltering = !!(selectedGenre || debouncedSearch);
+  const isLoading = isFiltering ? loadingFiltered : loadingAll;
+
   return (
     <Layout>
       {/* ── Hero ── */}
-      <section className="relative w-full aspect-[21/9] min-h-[480px] max-h-[780px] bg-slate-100 overflow-hidden">
+      <section className="relative w-full aspect-[21/9] min-h-[500px] max-h-[820px] bg-black overflow-hidden">
         {loadingFeatured ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="animate-spin text-primary/40" size={36} />
@@ -83,73 +217,70 @@ export default function Home() {
               <motion.div
                 key={heroIndex}
                 custom={direction}
-                variants={variants}
+                variants={slideVariants}
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.65, ease: [0.32, 0.72, 0, 1] }}
+                transition={{ duration: 0.7, ease: [0.32, 0.72, 0, 1] }}
                 className="absolute inset-0"
               >
-                {/* Background */}
                 <div className="absolute inset-0 select-none">
                   <img
                     src={heroMovie.bannerUrl || heroMovie.posterUrl}
                     alt={heroMovie.title}
                     className="w-full h-full object-cover object-top"
                   />
-                  {/* Gradient scrim — bottom heavy so text pops on white bg below */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-black/10" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/15 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-transparent" />
                 </div>
 
-                {/* Content */}
-                <div className="absolute inset-0 flex items-end pb-14">
+                <div className="absolute inset-0 flex items-end pb-16">
                   <div className="max-w-[1600px] w-full mx-auto px-8">
                     <motion.div
-                      initial={{ opacity: 0, y: 28 }}
+                      initial={{ opacity: 0, y: 32 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{ delay: 0.2, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
                       className="max-w-2xl"
                     >
-                      {/* Badges row */}
                       <div className="flex flex-wrap items-center gap-2 mb-4">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-white text-xs font-bold shadow-lg shadow-primary/30">
                           <Sparkles size={11} />
                           Featured
                         </span>
-                        <span className="px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold backdrop-blur-sm border border-white/25">
+                        <span className="px-3 py-1 rounded-full bg-white/15 text-white text-xs font-bold backdrop-blur-sm border border-white/20">
                           {heroMovie.quality}
                         </span>
                         {heroMovie.rating && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-400/90 text-amber-900 text-xs font-bold">
-                            <Star size={11} className="fill-amber-900" />
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold border border-amber-500/30">
+                            <Star size={11} className="fill-amber-400" />
                             {heroMovie.rating.toFixed(1)}
                           </span>
                         )}
                         {heroMovie.genre?.slice(0, 2).map(g => (
-                          <span key={g} className="px-3 py-1 rounded-full bg-white/15 text-white/90 text-xs font-medium backdrop-blur-sm border border-white/15">
+                          <span key={g} className="px-3 py-1 rounded-full bg-white/10 text-white/80 text-xs font-medium backdrop-blur-sm border border-white/12">
                             {g}
                           </span>
                         ))}
                       </div>
 
-                      <h1 className="text-5xl md:text-[3.75rem] font-black text-white leading-tight mb-4 drop-shadow-2xl tracking-tight">
+                      <h1 className="text-5xl md:text-[3.5rem] font-black text-white leading-tight mb-4 drop-shadow-2xl tracking-tight">
                         {heroMovie.title}
                       </h1>
 
-                      <p className="text-base text-white/75 mb-7 line-clamp-2 leading-relaxed max-w-lg">
+                      <p className="text-base text-white/65 mb-8 line-clamp-2 leading-relaxed max-w-lg">
                         {heroMovie.description}
                       </p>
 
                       <div className="flex items-center gap-3">
                         <Link
                           href={`/movie/${heroMovie.id}`}
-                          className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-7 rounded-full shadow-xl shadow-primary/30 hover:shadow-primary/40 transition-all hover:scale-105 active:scale-95"
+                          className="inline-flex items-center gap-2 bg-white text-black font-bold py-3 px-7 rounded-full shadow-xl hover:bg-white/90 transition-all hover:scale-105 active:scale-95"
                         >
-                          <PlayCircle size={18} />
+                          <PlayCircle size={18} className="fill-black" />
                           View Details
                         </Link>
-                        <span className="text-white/60 font-mono text-sm font-semibold bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-3 rounded-full">
+                        <span className="text-white/70 font-mono text-sm font-semibold bg-white/10 backdrop-blur-md border border-white/15 px-5 py-3 rounded-full">
                           {formatKes(heroMovie.price)}
                         </span>
                       </div>
@@ -159,37 +290,25 @@ export default function Home() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Arrows */}
             {total > 1 && (
               <>
-                <button
-                  onClick={prev}
-                  className="absolute left-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/20 hover:bg-white/35 text-white flex items-center justify-center backdrop-blur-md border border-white/25 transition-all hover:scale-110"
-                  aria-label="Previous"
-                >
+                <button onClick={prev} className="absolute left-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-md border border-white/15 transition-all hover:scale-110" aria-label="Previous">
                   <ChevronLeft size={20} />
                 </button>
-                <button
-                  onClick={next}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/20 hover:bg-white/35 text-white flex items-center justify-center backdrop-blur-md border border-white/25 transition-all hover:scale-110"
-                  aria-label="Next"
-                >
+                <button onClick={next} className="absolute right-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-md border border-white/15 transition-all hover:scale-110" aria-label="Next">
                   <ChevronRight size={20} />
                 </button>
               </>
             )}
 
-            {/* Dot indicators + progress */}
             {total > 1 && (
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
                 {featuredMovies!.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => goTo(i, i > heroIndex ? 1 : -1)}
                     className={`rounded-full transition-all duration-300 ${
-                      i === heroIndex
-                        ? "w-8 h-2 bg-primary shadow-md shadow-primary/40"
-                        : "w-2 h-2 bg-white/40 hover:bg-white/70"
+                      i === heroIndex ? "w-8 h-2 bg-white shadow-md" : "w-2 h-2 bg-white/30 hover:bg-white/60"
                     }`}
                     aria-label={`Slide ${i + 1}`}
                   />
@@ -202,125 +321,144 @@ export default function Home() {
 
       {/* ── Stats ribbon ── */}
       {stats && (
-        <div className="bg-white border-b border-border">
-          <div className="max-w-[1600px] mx-auto px-8 py-4 flex items-center gap-8">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Film size={15} className="text-primary" />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="bg-white/4 border-y border-white/6"
+        >
+          <div className="max-w-[1600px] mx-auto px-8 py-3.5 flex items-center gap-8 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white/70 whitespace-nowrap">
+              <Film size={14} className="text-primary" />
               <span className="text-primary font-black">{stats.total}</span> films
             </div>
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Download size={15} className="text-primary" />
+            <div className="flex items-center gap-2 text-sm font-semibold text-white/70 whitespace-nowrap">
+              <Download size={14} className="text-primary" />
               Instant download
             </div>
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Clock size={15} className="text-primary" />
+            <div className="flex items-center gap-2 text-sm font-semibold text-white/70 whitespace-nowrap">
+              <Clock3 size={14} className="text-primary" />
               Via Telegram
             </div>
-            <div className="ml-auto text-xs text-muted-foreground font-medium">
-              {Object.keys(stats.byGenre).length} genres available
+            <div className="ml-auto text-xs text-white/25 font-medium whitespace-nowrap">
+              {Object.keys(stats.byGenre).length} genres
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* ── Main content ── */}
-      <section className="max-w-[1600px] mx-auto w-full px-8 py-10">
+      {/* ── Search + genre filter bar ── */}
+      <div className="max-w-[1600px] mx-auto w-full px-8 pt-8 pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+          <h2 className="text-2xl font-black text-white tracking-tight flex-1">
+            {debouncedSearch
+              ? `Results for "${debouncedSearch}"`
+              : selectedGenre
+              ? selectedGenre
+              : "Explore the Vault"}
+          </h2>
 
-        {/* Section header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-2xl font-black text-foreground tracking-tight">Explore the Vault</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {debouncedSearch
-                ? `Results for "${debouncedSearch}"`
-                : selectedGenre
-                ? `Browsing ${selectedGenre}`
-                : "All premium films"} — click a poster to buy
-            </p>
-          </div>
-
-          {/* Search bar */}
           <div className="relative w-full sm:w-72">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
-              onChange={e => {
-                setSearchQuery(e.target.value);
-                if (e.target.value) setSelectedGenre(undefined);
-              }}
+              onChange={e => { setSearchQuery(e.target.value); if (e.target.value) setSelectedGenre(undefined); }}
               placeholder="Search movies…"
-              className="w-full pl-10 pr-9 py-2.5 rounded-full border border-border bg-white text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all shadow-sm"
+              className="w-full pl-10 pr-9 py-2.5 rounded-full border border-white/12 bg-white/6 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all"
             />
             {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X size={15} />
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors">
+                <X size={14} />
               </button>
             )}
           </div>
         </div>
 
         {/* Genre pills */}
-        {!debouncedSearch && (
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide mb-8">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide mb-2">
+          <button
+            onClick={() => { setSelectedGenre(undefined); setSearchQuery(""); }}
+            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-semibold transition-all border ${
+              !selectedGenre && !debouncedSearch
+                ? "bg-white text-black border-white shadow-lg"
+                : "bg-white/6 text-white/50 border-white/10 hover:border-white/25 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            All
+          </button>
+          {genres?.map(genre => (
             <button
-              onClick={() => setSelectedGenre(undefined)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all border ${
-                !selectedGenre
-                  ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                  : "bg-white text-muted-foreground border-border hover:border-primary/40 hover:text-primary hover:bg-primary/5"
+              key={genre}
+              onClick={() => { setSelectedGenre(genre); setSearchQuery(""); }}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-semibold transition-all border flex items-center gap-2 ${
+                selectedGenre === genre
+                  ? "bg-primary text-white border-primary shadow-lg shadow-primary/25"
+                  : "bg-white/6 text-white/50 border-white/10 hover:border-white/25 hover:text-white hover:bg-white/10"
               }`}
             >
-              All
+              {genre}
+              {stats?.byGenre[genre] && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  selectedGenre === genre ? "bg-white/20 text-white" : "bg-white/8 text-white/40"
+                }`}>
+                  {stats.byGenre[genre]}
+                </span>
+              )}
             </button>
-            {genres?.map(genre => (
-              <button
-                key={genre}
-                onClick={() => setSelectedGenre(genre)}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all border flex items-center gap-2 ${
-                  selectedGenre === genre
-                    ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                    : "bg-white text-muted-foreground border-border hover:border-primary/40 hover:text-primary hover:bg-primary/5"
-                }`}
-              >
-                {genre}
-                {stats?.byGenre[genre] && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    selectedGenre === genre ? "bg-white/25 text-white" : "bg-muted text-muted-foreground"
-                  }`}>
-                    {stats.byGenre[genre]}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
+      </div>
 
-        {/* Movie grid */}
-        {loadingMovies ? (
-          <div className="flex items-center justify-center py-32">
-            <Loader2 className="animate-spin text-primary" size={36} />
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5 md:gap-6">
-            {moviesRes?.movies.map((movie, i) => (
-              <MovieCard key={movie.id} movie={movie} index={i} />
-            ))}
-            {moviesRes?.movies.length === 0 && (
-              <div className="col-span-full py-24 text-center text-muted-foreground">
-                <Film size={48} className="mx-auto mb-4 opacity-15" />
-                <p className="font-semibold">No films found in this genre.</p>
-                <button onClick={() => setSelectedGenre(undefined)} className="mt-3 text-sm text-primary hover:underline">
-                  Clear filter
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+      {/* ── Content area ── */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-32">
+          <Loader2 className="animate-spin text-primary" size={36} />
+        </div>
+      ) : isFiltering ? (
+        /* Filtered grid view */
+        <section className="max-w-[1600px] mx-auto w-full px-8 py-6">
+          {filteredMovies.length === 0 ? (
+            <div className="py-24 text-center">
+              <Film size={48} className="mx-auto mb-4 opacity-10 text-white" />
+              <p className="font-semibold text-white/40">No films found.</p>
+              <button onClick={() => { setSelectedGenre(undefined); setSearchQuery(""); }} className="mt-3 text-sm text-primary hover:underline">
+                Clear filter
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+              {filteredMovies.map((movie, i) => (
+                <MovieCard key={movie.id} movie={movie} index={i} />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        /* Horizontal rows (default browse) */
+        <div className="py-6">
+          {recentlyAdded.length > 0 && (
+            <MovieRow
+              title="Recently Added"
+              icon={<Flame size={18} />}
+              movies={recentlyAdded}
+              startIndex={0}
+            />
+          )}
+
+          {genreRows.map(([genre, movies], rowIdx) => (
+            <MovieRow
+              key={genre}
+              title={genre}
+              movies={movies}
+              startIndex={40 + rowIdx * 10}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Bottom padding */}
+      <div className="h-12" />
     </Layout>
   );
 }
