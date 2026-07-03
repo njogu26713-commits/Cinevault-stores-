@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Film, PlayCircle, Loader2, ChevronLeft, ChevronRight,
-  Star, Clock, Download, Sparkles
+  Star, Clock, Download, Sparkles, Search, X
 } from "lucide-react";
 import {
   useListMovies,
@@ -18,16 +18,24 @@ import { formatKes } from "../lib/utils";
 
 export default function Home() {
   const [selectedGenre, setSelectedGenre] = useState<string | undefined>();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [heroIndex, setHeroIndex] = useState(0);
   const [direction, setDirection] = useState(1);
+
+  // Debounce search — wait 350ms after user stops typing
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   const { data: featuredMovies, isLoading: loadingFeatured } = useListFeaturedMovies();
   const { data: genres } = useListGenres();
   const { data: stats } = useGetMovieStats();
 
   const { data: moviesRes, isLoading: loadingMovies } = useListMovies(
-    { genre: selectedGenre },
-    { query: { queryKey: getListMoviesQueryKey({ genre: selectedGenre }) } }
+    { genre: selectedGenre, search: debouncedSearch || undefined },
+    { query: { queryKey: getListMoviesQueryKey({ genre: selectedGenre, search: debouncedSearch || undefined }) } }
   );
 
   const total = featuredMovies?.length ?? 0;
@@ -218,17 +226,46 @@ export default function Home() {
       {/* ── Main content ── */}
       <section className="max-w-[1600px] mx-auto w-full px-8 py-10">
 
-        {/* Section header + Genre pills */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 mb-8">
+        {/* Section header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-black text-foreground tracking-tight">Explore the Vault</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedGenre ? `Browsing ${selectedGenre}` : "All premium films"} — click a poster to buy
+              {debouncedSearch
+                ? `Results for "${debouncedSearch}"`
+                : selectedGenre
+                ? `Browsing ${selectedGenre}`
+                : "All premium films"} — click a poster to buy
             </p>
           </div>
 
-          {/* Genre pills */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {/* Search bar */}
+          <div className="relative w-full sm:w-72">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                if (e.target.value) setSelectedGenre(undefined);
+              }}
+              placeholder="Search movies…"
+              className="w-full pl-10 pr-9 py-2.5 rounded-full border border-border bg-white text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Genre pills */}
+        {!debouncedSearch && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide mb-8">
             <button
               onClick={() => setSelectedGenre(undefined)}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all border ${
@@ -260,7 +297,7 @@ export default function Home() {
               </button>
             ))}
           </div>
-        </div>
+        )}
 
         {/* Movie grid */}
         {loadingMovies ? (
