@@ -121,7 +121,7 @@ export default function WatchEpisode() {
               </div>
               <h2 className="text-white text-xl font-bold mb-2">Ready to watch?</h2>
               <p className="text-white/50 text-sm mb-6">
-                Enter your Telegram username to verify your purchase and start streaming.
+                Enter your Telegram username to start streaming this episode for free.
               </p>
               <form onSubmit={handleConfirmUsername} className="space-y-3">
                 <input

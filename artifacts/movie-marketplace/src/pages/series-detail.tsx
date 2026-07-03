@@ -1,26 +1,31 @@
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useState } from "react";
 import { useGetSeries, getGetSeriesQueryKey } from "@workspace/api-client-react";
 import { Layout } from "../components/layout";
 import { StatusBadge } from "../components/series-card";
 import { SeriesCheckoutModal } from "../components/series-checkout-modal";
 import { formatKes } from "../lib/utils";
-import { Loader2, Star, Calendar, Tv, ChevronDown, ChevronUp, Play, AlertCircle } from "lucide-react";
+import { Loader2, Star, Calendar, Tv, ChevronDown, ChevronUp, Play, AlertCircle, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Season } from "@workspace/api-client-react";
 
 function SeasonAccordion({
+  seriesId,
+  seasonIndex,
   season,
   pricePerSeason,
   pricePerEpisode,
   onPurchaseEpisode,
 }: {
+  seriesId: string;
+  seasonIndex: number;
   season: Season;
   pricePerSeason: number;
   pricePerEpisode: number;
   onPurchaseEpisode: (seasonNumber: number, episodeNumber: number) => void;
 }) {
   const [open, setOpen] = useState(season.seasonNumber === 1);
+  const [, navigate] = useLocation();
 
   return (
     <div className="border border-border rounded-xl overflow-hidden">
@@ -59,10 +64,11 @@ function SeasonAccordion({
             className="overflow-hidden"
           >
             <div className="divide-y divide-border">
-              {season.episodes.map(ep => (
+              {season.episodes.map((ep, episodeIndex) => (
                 <div
                   key={ep.episodeNumber}
-                  className="flex items-center gap-4 px-5 py-3 bg-background hover:bg-muted/30 transition-colors group"
+                  onClick={() => navigate(`/watch/episode/${seriesId}/${seasonIndex}/${episodeIndex}`)}
+                  className="flex items-center gap-4 px-5 py-3 bg-background hover:bg-muted/30 transition-colors group cursor-pointer"
                 >
                   <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">
                     <Play size={12} className="fill-current" aria-hidden />
@@ -73,10 +79,19 @@ function SeasonAccordion({
                     </p>
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">{ep.duration}</span>
+                  <span className="shrink-0 text-xs font-semibold text-primary flex items-center gap-1">
+                    <Play size={12} className="fill-current" />
+                    Watch
+                  </span>
                   <button
-                    onClick={() => onPurchaseEpisode(season.seasonNumber, ep.episodeNumber)}
-                    className="shrink-0 text-xs font-semibold text-primary hover:underline px-2 py-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPurchaseEpisode(season.seasonNumber, ep.episodeNumber);
+                    }}
+                    title="Buy for permanent Telegram delivery"
+                    className="shrink-0 text-xs font-semibold text-muted-foreground hover:text-primary hover:underline px-2 py-1 flex items-center gap-1"
                   >
+                    <Download size={12} />
                     {formatKes(pricePerEpisode)}
                   </button>
                 </div>
@@ -256,9 +271,11 @@ export default function SeriesDetail() {
               <div>
                 <h3 className="text-xl font-bold text-foreground mb-4">Episodes</h3>
                 <div className="space-y-3">
-                  {series.seasons.map(season => (
+                  {series.seasons.map((season, seasonIndex) => (
                     <SeasonAccordion
                       key={season.seasonNumber}
+                      seriesId={series.id}
+                      seasonIndex={seasonIndex}
                       season={season}
                       pricePerSeason={series.pricePerSeason}
                       pricePerEpisode={series.pricePerEpisode}
