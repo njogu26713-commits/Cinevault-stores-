@@ -95,8 +95,31 @@ export interface ReviewSectionProps {
   contentId: string;
 }
 
+/** Read the Telegram username saved by the watch/checkout flow (localStorage "cv_username"). */
+function useSavedTelegramUsername(): string {
+  const [name, setName] = useState(() => {
+    try { return (localStorage.getItem("cv_username") ?? "").replace(/^@/, "").trim(); } catch { return ""; }
+  });
+  // Keep in sync if the user enters their username during the same session
+  useEffect(() => {
+    const onStorage = () => {
+      try { setName((localStorage.getItem("cv_username") ?? "").replace(/^@/, "").trim()); } catch {}
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+  return name;
+}
+
 export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
   const { user } = useUserAuth();
+  // Telegram username is the fallback identity for users without a CineVault account
+  const telegramUsername = useSavedTelegramUsername();
+  // The effective reviewer identity: prefer JWT user, fall back to Telegram username
+  const reviewerId = user ? user.id : telegramUsername ? `tg:${telegramUsername.toLowerCase()}` : null;
+  const reviewerName = user ? user.username : telegramUsername || null;
+  // Extra body field sent when not using a JWT session
+  const tgBody = !user && telegramUsername ? { telegramUsername } : {};
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [aggRating, setAggRating] = useState<AggRating>({ avg: 0, count: 0 });
@@ -146,6 +169,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!reviewerId) { toast.error("Enter your Telegram username on the watch page first"); return; }
     if (!formRating) { toast.error("Please select a star rating"); return; }
     if (formText.trim().length < 10) { toast.error("Review must be at least 10 characters"); return; }
     setSubmitting(true);
@@ -153,7 +177,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
       const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contentType, contentId, rating: formRating, text: formText }),
+        body: JSON.stringify({ contentType, contentId, rating: formRating, text: formText, ...tgBody }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -169,8 +193,12 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
   };
 
   const handleLike = async (reviewId: string) => {
-    if (!user) { toast.error("Sign in to like reviews"); return; }
-    const res = await fetch(`/api/reviews/${reviewId}/like`, { method: "POST" });
+    if (!reviewerId) { toast.error("Enter your Telegram username on the watch page first"); return; }
+    const res = await fetch(`/api/reviews/${reviewId}/like`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...tgBody }),
+    });
     if (!res.ok) return;
     const data = await res.json();
     setReviews((prev) => prev.map((r) => r._id === reviewId ? { ...r, liked: data.liked, likeCount: data.likeCount } : r));
@@ -178,7 +206,11 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
 
   const handleDelete = async (reviewId: string) => {
     if (!confirm("Delete your review?")) return;
-    const res = await fetch(`/api/reviews/${reviewId}`, { method: "DELETE" });
+    const res = await fetch(`/api/reviews/${reviewId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...tgBody }),
+    });
     if (!res.ok) { toast.error("Failed to delete"); return; }
     setReviews((prev) => prev.filter((r) => r._id !== reviewId));
     setAggRating((r) => ({ ...r, count: Math.max(0, r.count - 1) }));
@@ -195,7 +227,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
       const res = await fetch(`/api/reviews/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating: editRating, text: editText }),
+        body: JSON.stringify({ rating: editRating, text: editText, ...tgBody }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -210,11 +242,11 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
   };
 
   const handleReport = async (reviewId: string) => {
-    if (!user) { toast.error("Sign in to report"); return; }
+    if (!reviewerId) { toast.error("Enter your Telegram username on the watch page first"); return; }
     const res = await fetch(`/api/reviews/${reviewId}/report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: "Inappropriate content" }),
+      body: JSON.stringify({ reason: "Inappropriate content", ...tgBody }),
     });
     const data = await res.json();
     if (!res.ok) { toast.error(data.error ?? "Failed"); return; }
@@ -230,7 +262,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
       const res = await fetch(`/api/reviews/${reviewId}/replies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, ...tgBody }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -244,12 +276,16 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
   };
 
   const handleDeleteReply = async (reviewId: string, replyId: string) => {
-    const res = await fetch(`/api/reviews/${reviewId}/replies/${replyId}`, { method: "DELETE" });
+    const res = await fetch(`/api/reviews/${reviewId}/replies/${replyId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...tgBody }),
+    });
     if (!res.ok) { toast.error("Failed to delete reply"); return; }
     setReviews((prev) => prev.map((r) => r._id === reviewId ? { ...r, replies: r.replies.filter((rep) => rep._id !== replyId) } : r));
   };
 
-  const alreadyReviewed = user ? reviews.some((r) => r.userId === user.id) : false;
+  const alreadyReviewed = reviewerId ? reviews.some((r) => r.userId === reviewerId) : false;
 
   return (
     <section className="mt-12 space-y-8">
@@ -273,16 +309,16 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
       </div>
 
       {/* Write review form */}
-      {user && !alreadyReviewed && (
+      {reviewerId && !alreadyReviewed && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-card border border-border rounded-xl p-6"
         >
           <div className="flex items-center gap-3 mb-4">
-            <UserAvatar username={user.username} size="md" />
+            <UserAvatar username={reviewerName!} size="md" />
             <div>
-              <p className="font-semibold text-sm">{user.username}</p>
+              <p className="font-semibold text-sm">{reviewerName}</p>
               <p className="text-xs text-muted-foreground">Write your review</p>
             </div>
           </div>
@@ -314,15 +350,15 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
         </motion.div>
       )}
 
-      {!user && (
+      {!reviewerId && (
         <div className="bg-card border border-border rounded-xl p-6 text-center">
           <p className="text-muted-foreground text-sm">
-            <a href="/login" className="text-primary hover:underline font-medium">Sign in</a> to write a review
+            Watch a title and enter your Telegram username to write a review
           </p>
         </div>
       )}
 
-      {user && alreadyReviewed && (
+      {reviewerId && alreadyReviewed && (
         <div className="bg-card border border-primary/30 rounded-xl p-4 text-sm text-muted-foreground">
           You've already reviewed this title. Edit your review below.
         </div>
@@ -396,7 +432,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
                     <span>{review.likeCount > 0 ? review.likeCount : ""} {review.likeCount === 1 ? "Like" : "Likes"}</span>
                   </button>
 
-                  {user && (
+                  {reviewerId && (
                     <button
                       onClick={() => setOpenReply(openReply === review._id ? null : review._id)}
                       className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
@@ -408,7 +444,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
                   )}
 
                   <div className="flex items-center gap-2 ml-auto">
-                    {user?.id === review.userId && (
+                    {reviewerId === review.userId && (
                       <>
                         <button onClick={() => startEdit(review)} className="text-muted-foreground hover:text-foreground transition p-1 rounded" title="Edit">
                           <Pencil size={13} />
@@ -418,7 +454,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
                         </button>
                       </>
                     )}
-                    {user && user.id !== review.userId && !review.reported && (
+                    {reviewerId && reviewerId !== review.userId && !review.reported && (
                       <button onClick={() => handleReport(review._id)} className="text-muted-foreground/50 hover:text-yellow-500 transition p-1 rounded" title="Report">
                         <Flag size={13} />
                       </button>
@@ -450,7 +486,7 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
                             </div>
                             <p className="text-xs text-foreground/80 mt-0.5">{reply.text}</p>
                           </div>
-                          {user?.id === reply.userId && (
+                          {reviewerId === reply.userId && (
                             <button
                               onClick={() => handleDeleteReply(review._id, reply._id)}
                               className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition"
@@ -462,10 +498,10 @@ export function ReviewSection({ contentType, contentId }: ReviewSectionProps) {
                       ))}
 
                       {/* Reply input */}
-                      {user && openReply === review._id && (
+                      {reviewerId && openReply === review._id && (
                         <div className="flex gap-2 mt-3">
-                          <div className={`w-6 h-6 rounded-full ${avatarColor(user.username)} flex items-center justify-center text-white text-xs font-bold shrink-0 mt-1`}>
-                            {user.username[0].toUpperCase()}
+                          <div className={`w-6 h-6 rounded-full ${avatarColor(reviewerName!)} flex items-center justify-center text-white text-xs font-bold shrink-0 mt-1`}>
+                            {reviewerName![0].toUpperCase()}
                           </div>
                           <div className="flex-1 flex gap-2">
                             <input

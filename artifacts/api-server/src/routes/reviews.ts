@@ -1,8 +1,8 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import mongoose from "mongoose";
 import { Review } from "../models/Review";
 import { Notification } from "../models/Notification";
-import { requireUserAuth, optionalUserAuth } from "../middleware/userAuth";
+import { optionalUserAuth } from "../middleware/userAuth";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -13,6 +13,24 @@ async function notify(userId: string, type: string, message: string, relatedId?:
   } catch (err) {
     logger.error({ err }, "Failed to create notification");
   }
+}
+
+/**
+ * Resolve a reviewer identity from either:
+ *   1. A valid JWT user session (takes priority), or
+ *   2. A `telegramUsername` field in the request body (no account needed).
+ *
+ * Returns null if neither is present.
+ */
+function resolveReviewer(req: Request): { userId: string; username: string } | null {
+  if (req.user) {
+    return { userId: req.user.userId, username: req.user.username };
+  }
+  const raw: string | undefined = req.body?.telegramUsername;
+  if (!raw || typeof raw !== "string") return null;
+  const clean = raw.replace(/^@/, "").trim().toLowerCase();
+  if (!clean || clean.length < 1) return null;
+  return { userId: `tg:${clean}`, username: raw.replace(/^@/, "").trim() };
 }
 
 // GET /api/reviews/:contentType/:contentId
@@ -61,8 +79,11 @@ router.get("/:contentType/:contentId", optionalUserAuth, async (req, res) => {
 });
 
 // POST /api/reviews
-router.post("/", requireUserAuth, async (req, res) => {
+router.post("/", optionalUserAuth, async (req, res) => {
   try {
+    const reviewer = resolveReviewer(req);
+    if (!reviewer) return res.status(401).json({ error: "Sign in or enter your Telegram username to post a review" });
+
     const { contentType, contentId, rating, text } = req.body ?? {};
     if (!contentType || !contentId || !rating || !text) {
       return res.status(400).json({ error: "contentType, contentId, rating and text are required" });
@@ -75,14 +96,14 @@ router.post("/", requireUserAuth, async (req, res) => {
     if (String(text).trim().length < 10) {
       return res.status(400).json({ error: "Review must be at least 10 characters" });
     }
-    const existing = await Review.findOne({ contentType, contentId, userId: req.user!.userId });
+    const existing = await Review.findOne({ contentType, contentId, userId: reviewer.userId });
     if (existing) return res.status(409).json({ error: "You have already reviewed this" });
 
     const review = await Review.create({
       contentType,
       contentId,
-      userId: req.user!.userId,
-      username: req.user!.username,
+      userId: reviewer.userId,
+      username: reviewer.username,
       rating: Math.round(r),
       text: String(text).trim(),
       likes: [],
@@ -98,11 +119,13 @@ router.post("/", requireUserAuth, async (req, res) => {
 });
 
 // PUT /api/reviews/:id
-router.put("/:id", requireUserAuth, async (req, res) => {
+router.put("/:id", optionalUserAuth, async (req, res) => {
   try {
+    const reviewer = resolveReviewer(req);
+    if (!reviewer) return res.status(401).json({ error: "Authentication required" });
     const review = await Review.findById(req.params.id);
     if (!review) return res.status(404).json({ error: "Review not found" });
-    if (review.userId !== req.user!.userId) return res.status(403).json({ error: "Not your review" });
+    if (review.userId !== reviewer.userId) return res.status(403).json({ error: "Not your review" });
     const { rating, text } = req.body ?? {};
     if (rating !== undefined) {
       const r = Number(rating);
@@ -122,11 +145,13 @@ router.put("/:id", requireUserAuth, async (req, res) => {
 });
 
 // DELETE /api/reviews/:id
-router.delete("/:id", requireUserAuth, async (req, res) => {
+router.delete("/:id", optionalUserAuth, async (req, res) => {
   try {
+    const reviewer = resolveReviewer(req);
+    if (!reviewer) return res.status(401).json({ error: "Authentication required" });
     const review = await Review.findById(req.params.id);
     if (!review) return res.status(404).json({ error: "Review not found" });
-    if (review.userId !== req.user!.userId) return res.status(403).json({ error: "Not your review" });
+    if (review.userId !== reviewer.userId) return res.status(403).json({ error: "Not your review" });
     await review.deleteOne();
     return res.json({ success: true });
   } catch (err: any) {
@@ -136,18 +161,20 @@ router.delete("/:id", requireUserAuth, async (req, res) => {
 });
 
 // POST /api/reviews/:id/like
-router.post("/:id/like", requireUserAuth, async (req, res) => {
+router.post("/:id/like", optionalUserAuth, async (req, res) => {
   try {
+    const reviewer = resolveReviewer(req);
+    if (!reviewer) return res.status(401).json({ error: "Authentication required" });
     const review = await Review.findById(req.params.id);
     if (!review) return res.status(404).json({ error: "Review not found" });
-    const uid = req.user!.userId;
+    const uid = reviewer.userId;
     const liked = review.likes.includes(uid);
     if (liked) {
       review.likes = review.likes.filter((id) => id !== uid);
     } else {
       review.likes.push(uid);
       if (review.userId !== uid) {
-        await notify(review.userId, "like", `${req.user!.username} liked your review`, review._id.toString());
+        await notify(review.userId, "like", `${reviewer.username} liked your review`, review._id.toString());
       }
     }
     await review.save();
@@ -159,8 +186,10 @@ router.post("/:id/like", requireUserAuth, async (req, res) => {
 });
 
 // POST /api/reviews/:id/replies
-router.post("/:id/replies", requireUserAuth, async (req, res) => {
+router.post("/:id/replies", optionalUserAuth, async (req, res) => {
   try {
+    const reviewer = resolveReviewer(req);
+    if (!reviewer) return res.status(401).json({ error: "Authentication required" });
     const review = await Review.findById(req.params.id);
     if (!review) return res.status(404).json({ error: "Review not found" });
     const { text } = req.body ?? {};
@@ -169,16 +198,16 @@ router.post("/:id/replies", requireUserAuth, async (req, res) => {
     }
     const reply = {
       _id: new mongoose.Types.ObjectId(),
-      userId: req.user!.userId,
-      username: req.user!.username,
+      userId: reviewer.userId,
+      username: reviewer.username,
       text: String(text).trim(),
       createdAt: new Date(),
     };
     review.replies.push(reply as any);
     await review.save();
-    if (review.userId !== req.user!.userId) {
+    if (review.userId !== reviewer.userId) {
       const preview = reply.text.length > 60 ? reply.text.substring(0, 60) + "…" : reply.text;
-      await notify(review.userId, "reply", `${req.user!.username} replied: "${preview}"`, review._id.toString());
+      await notify(review.userId, "reply", `${reviewer.username} replied: "${preview}"`, review._id.toString());
     }
     return res.status(201).json(reply);
   } catch (err: any) {
@@ -188,13 +217,15 @@ router.post("/:id/replies", requireUserAuth, async (req, res) => {
 });
 
 // DELETE /api/reviews/:id/replies/:replyId
-router.delete("/:id/replies/:replyId", requireUserAuth, async (req, res) => {
+router.delete("/:id/replies/:replyId", optionalUserAuth, async (req, res) => {
   try {
+    const reviewer = resolveReviewer(req);
+    if (!reviewer) return res.status(401).json({ error: "Authentication required" });
     const review = await Review.findById(req.params.id);
     if (!review) return res.status(404).json({ error: "Review not found" });
     const reply = review.replies.find((r: any) => r._id.toString() === req.params.replyId);
     if (!reply) return res.status(404).json({ error: "Reply not found" });
-    if ((reply as any).userId !== req.user!.userId) return res.status(403).json({ error: "Not your reply" });
+    if ((reply as any).userId !== reviewer.userId) return res.status(403).json({ error: "Not your reply" });
     review.replies = review.replies.filter((r: any) => r._id.toString() !== req.params.replyId);
     await review.save();
     return res.json({ success: true });
@@ -205,11 +236,13 @@ router.delete("/:id/replies/:replyId", requireUserAuth, async (req, res) => {
 });
 
 // POST /api/reviews/:id/report
-router.post("/:id/report", requireUserAuth, async (req, res) => {
+router.post("/:id/report", optionalUserAuth, async (req, res) => {
   try {
+    const reviewer = resolveReviewer(req);
+    if (!reviewer) return res.status(401).json({ error: "Authentication required" });
     const review = await Review.findById(req.params.id);
     if (!review) return res.status(404).json({ error: "Review not found" });
-    const uid = req.user!.userId;
+    const uid = reviewer.userId;
     if (review.reports.some((r: any) => r.userId === uid)) {
       return res.status(409).json({ error: "Already reported" });
     }
