@@ -41,7 +41,7 @@ if (process.env.NODE_ENV === "production") {
 
   const adminDist = path.resolve(__dirname, "../../admin-dashboard/dist/public");
   if (fs.existsSync(adminDist)) {
-    app.use("/admin", express.static(adminDist));
+    app.use("/admin", express.static(adminDist, { index: "index.html" }));
     app.get("/admin/{*path}", (_req, res) => {
       res.sendFile(path.join(adminDist, "index.html"));
     });

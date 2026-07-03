@@ -17,13 +17,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ loading: true, authenticated: false, email: null });
 
   useEffect(() => {
-    fetch("/api/admin/auth/me", { credentials: "include" })
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    fetch("/api/admin/auth/me", { credentials: "include", signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
+        clearTimeout(timeout);
         if (data.ok) setState({ loading: false, authenticated: true, email: data.email });
         else setState({ loading: false, authenticated: false, email: null });
       })
-      .catch(() => setState({ loading: false, authenticated: false, email: null }));
+      .catch(() => {
+        clearTimeout(timeout);
+        setState({ loading: false, authenticated: false, email: null });
+      });
+
+    return () => { clearTimeout(timeout); controller.abort(); };
   }, []);
 
   const login = async (email: string, password: string) => {
