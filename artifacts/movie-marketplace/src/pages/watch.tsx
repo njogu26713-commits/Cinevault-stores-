@@ -1,9 +1,23 @@
-import { useParams, useLocation } from "wouter";
-import { useRef, useState, useEffect } from "react";
-import { useGetMovie, getGetMovieQueryKey } from "@workspace/api-client-react";
-import { Layout } from "../components/layout";
-import { Loader2, ArrowLeft, AlertCircle, Play, Maximize2, ExternalLink } from "lucide-react";
-import { motion } from "framer-motion";
+import { useParams, useLocation, Link } from "wouter";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { useGetMovie, getGetMovieQueryKey, useListMovies } from "@workspace/api-client-react";
+import { ReviewSection } from "../components/review-section";
+import {
+  Loader2, ArrowLeft, AlertCircle, Play, Pause,
+  Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward,
+  Settings, PictureInPicture2, Heart, Plus, Share2, Download,
+  Flag, Star, Eye, MessageCircle, Check, ExternalLink, Clock,
+  ChevronLeft, ChevronRight, X,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+// ── LocalStorage prefs ─────────────────────────────────────────────────────
+function loadPref<T>(key: string, fallback: T): T {
+  try { return JSON.parse(localStorage.getItem(key) ?? "") ?? fallback; } catch { return fallback; }
+}
+function savePref(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* noop */ }
+}
 
 function useSavedUsername() {
   const [username, setUsername] = useState<string>(
@@ -17,272 +31,718 @@ function useSavedUsername() {
   return { username, save };
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmt(s: number) {
+  const h = Math.floor(s / 3600);
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const sec = String(Math.floor(s % 60)).padStart(2, "0");
+  return h > 0 ? `${h}:${m}:${sec}` : `${m}:${sec}`;
+}
+
+// ── Video Player ───────────────────────────────────────────────────────────
+interface PlayerProps {
+  src: string;
+  poster?: string;
+  subtitleUrl?: string;
+  onError: (msg: string) => void;
+  onBack: () => void;
+}
+
+function VideoPlayer({ src, poster, subtitleUrl, onError, onBack }: PlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(() => loadPref("cv_volume", 80));
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [showControls, setShowControls] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [activeSettingKey, setActiveSettingKey] = useState<string | null>(null);
+
+  // Persistent settings
+  const [videoFit, setVideoFitState] = useState<"contain" | "cover" | "fill">(() => loadPref("cv_fit", "contain"));
+  const [speed, setSpeedState] = useState<string>(() => loadPref("cv_speed", "1x"));
+  const [subtitlesOn, setSubtitlesState] = useState<boolean>(() => loadPref("cv_subs", true));
+  const [autoplayNext, setAutoplayNextState] = useState<boolean>(() => loadPref("cv_autoplay", true));
+  const [skipIntro, setSkipIntroState] = useState<boolean>(() => loadPref("cv_skipintro", false));
+
+  const setVideoFit = (v: "contain" | "cover" | "fill") => { setVideoFitState(v); savePref("cv_fit", v); };
+  const setSpeed = (v: string) => {
+    setSpeedState(v);
+    savePref("cv_speed", v);
+    if (videoRef.current) videoRef.current.playbackRate = parseFloat(v);
+  };
+  const setSubtitles = (v: boolean) => { setSubtitlesState(v); savePref("cv_subs", v); };
+  const setAutoplayNext = (v: boolean) => { setAutoplayNextState(v); savePref("cv_autoplay", v); };
+  const setSkipIntro = (v: boolean) => { setSkipIntroState(v); savePref("cv_skipintro", v); };
+
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const playingRef = useRef(false);
+  const lastSaveRef = useRef(0);
+
+  const resetHide = useCallback(() => {
+    setShowControls(true);
+    clearTimeout(hideTimeout.current);
+    if (playingRef.current) {
+      hideTimeout.current = setTimeout(() => setShowControls(false), 3000);
+    }
+  }, []);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    // Apply persisted settings on mount
+    v.volume = volume / 100;
+    v.playbackRate = parseFloat(speed);
+    const onTime = () => {
+      setProgress(v.currentTime);
+      // Save progress throttled to every 5 real-time seconds
+      const now = Date.now();
+      if (now - lastSaveRef.current > 5000) {
+        savePref(`cv_movie_progress_${src}`, Math.floor(v.currentTime));
+        lastSaveRef.current = now;
+      }
+    };
+    const onDuration = () => {
+      setDuration(v.duration);
+      // Resume from saved position
+      const saved = loadPref<number>(`cv_movie_progress_${src}`, 0);
+      if (saved > 10) v.currentTime = saved;
+    };
+    const onPlay = () => { setPlaying(true); playingRef.current = true; resetHide(); };
+    const onPause = () => { setPlaying(false); playingRef.current = false; setShowControls(true); };
+    const onFull = () => setFullscreen(!!document.fullscreenElement);
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("durationchange", onDuration);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    document.addEventListener("fullscreenchange", onFull);
+    return () => {
+      v.removeEventListener("timeupdate", onTime);
+      v.removeEventListener("durationchange", onDuration);
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+      document.removeEventListener("fullscreenchange", onFull);
+      clearTimeout(hideTimeout.current);
+    };
+  }, []);
+
+  // Sync subtitle track visibility
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    Array.from(v.textTracks).forEach((track) => {
+      track.mode = subtitlesOn ? "showing" : "hidden";
+    });
+  }, [subtitlesOn]);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.paused ? v.play().catch(() => {}) : v.pause();
+    resetHide();
+  };
+
+  const skip = (secs: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + secs));
+  };
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current;
+    if (!v || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    v.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
+  };
+
+  const changeVolume = (val: number) => {
+    const v = videoRef.current;
+    setVolume(val);
+    savePref("cv_volume", val);
+    if (v) v.volume = val / 100;
+    if (val > 0) setMuted(false);
+  };
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const next = !muted;
+    setMuted(next);
+    v.muted = next;
+  };
+
+  const toggleFullscreen = () => {
+    const el = videoRef.current?.parentElement;
+    if (!el) return;
+    document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen();
+  };
+
+  const togglePip = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (document.pictureInPictureElement) {
+      document.exitPictureInPicture().catch(() => {});
+    } else {
+      v.requestPictureInPicture().catch(() => {});
+    }
+  };
+
+  const fitLabel = videoFit === "contain" ? "Fit (Contain)" : videoFit === "cover" ? "Fill (Cover)" : "Stretch";
+  const settingsMap: Record<string, { value: string; choices: string[]; onSelect: (v: string) => void }> = {
+    "Video Fit": {
+      value: fitLabel,
+      choices: ["Fit (Contain)", "Fill (Cover)", "Stretch"],
+      onSelect: (v) => setVideoFit(v === "Fit (Contain)" ? "contain" : v === "Fill (Cover)" ? "cover" : "fill"),
+    },
+    "Speed": {
+      value: speed,
+      choices: ["0.5x", "0.75x", "1x", "1.25x", "1.5x", "2x"],
+      onSelect: setSpeed,
+    },
+    "Subtitles": {
+      value: subtitlesOn ? "On" : "Off",
+      choices: ["On", "Off"],
+      onSelect: (v) => setSubtitles(v === "On"),
+    },
+    "Auto Play Next": {
+      value: autoplayNext ? "On" : "Off",
+      choices: ["On", "Off"],
+      onSelect: (v) => setAutoplayNext(v === "On"),
+    },
+    "Skip Intro": {
+      value: skipIntro ? "On" : "Off",
+      choices: ["On", "Off"],
+      onSelect: (v) => setSkipIntro(v === "On"),
+    },
+  };
+
+  const progressPct = duration ? (progress / duration) * 100 : 0;
+
+  return (
+    <div
+      className="relative w-full bg-black select-none"
+      style={{ aspectRatio: "16/9" }}
+      onMouseMove={resetHide}
+      onMouseLeave={() => playing && setShowControls(false)}
+      onClick={() => { if (!showSettings) togglePlay(); }}
+    >
+      <video
+        ref={videoRef}
+        src={src}
+        className="absolute inset-0 w-full h-full"
+        style={{ objectFit: videoFit === "contain" ? "contain" : videoFit === "cover" ? "cover" : "fill" }}
+        crossOrigin="anonymous"
+        playsInline
+        poster={poster}
+        onError={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const code = e.currentTarget.error?.code;
+          onError(
+            code === 4
+              ? "File is too large for the Bot API (>20 MB). Go to Admin → Telegram Connect and sign in to stream large files."
+              : `Playback error (code ${code ?? "unknown"}). Make sure the movie file is attached and try again.`
+          );
+        }}
+      >
+        {subtitleUrl && (
+          <track kind="subtitles" src={subtitleUrl} srcLang="en" label="English" default />
+        )}
+      </video>
+
+      {/* Gradient overlays */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
+
+      {/* Big play button when paused */}
+      <AnimatePresence>
+        {!playing && (
+          <motion.div
+            key="bigplay"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          >
+            <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl">
+              <Play size={36} className="text-white fill-white ml-1" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Controls */}
+      <div
+        className={`absolute inset-0 flex flex-col justify-end transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Progress bar */}
+        <div className="px-4 pb-2">
+          <div
+            className="relative h-1 bg-white/20 rounded-full cursor-pointer group/bar hover:h-1.5 transition-all duration-150"
+            onClick={seek}
+          >
+            <div className="absolute inset-y-0 left-0 bg-white/20 rounded-full" style={{ width: `${Math.min(progressPct + 10, 100)}%` }} />
+            <div className="absolute inset-y-0 left-0 bg-primary rounded-full" style={{ width: `${progressPct}%` }} />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover/bar:opacity-100 transition-opacity"
+              style={{ left: `calc(${progressPct}% - 6px)` }}
+            />
+          </div>
+        </div>
+
+        {/* Bottom controls */}
+        <div className="flex items-center gap-2 px-4 pb-4" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)" }}>
+          <button aria-label={playing ? "Pause" : "Play"} className="text-white/90 hover:text-white transition-colors p-1" onClick={togglePlay}>
+            {playing ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}
+          </button>
+          <button aria-label="Rewind 10 seconds" className="text-white/70 hover:text-white transition-colors p-1" onClick={() => skip(-10)}>
+            <SkipBack size={20} />
+          </button>
+          <button aria-label="Skip forward 10 seconds" className="text-white/70 hover:text-white transition-colors p-1" onClick={() => skip(10)}>
+            <SkipForward size={20} />
+          </button>
+
+          {/* Volume */}
+          <div className="flex items-center gap-1 group/vol">
+            <button aria-label={muted || volume === 0 ? "Unmute" : "Mute"} className="text-white/70 hover:text-white transition-colors p-1" onClick={toggleMute}>
+              {muted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            </button>
+            <div className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-200">
+              <input
+                type="range" min={0} max={100} value={muted ? 0 : volume}
+                onChange={(e) => changeVolume(+e.target.value)}
+                className="w-20 cursor-pointer accent-primary"
+              />
+            </div>
+          </div>
+
+          {/* Time */}
+          <span className="text-white/50 text-xs font-mono tabular-nums">
+            {fmt(progress)} / {duration ? fmt(duration) : "--:--"}
+          </span>
+
+          <div className="flex-1" />
+
+          {/* Right controls */}
+          <div className="relative">
+            <button
+              className={`text-white/70 hover:text-white transition-colors p-1 ${showSettings ? "text-white" : ""}`}
+              onClick={(e) => { e.stopPropagation(); setShowSettings((s) => !s); setActiveSettingKey(null); }}
+              title="Settings"
+            >
+              <Settings size={20} className={`transition-transform duration-300 ${showSettings ? "rotate-45" : ""}`} />
+            </button>
+
+            {/* Settings panel */}
+            <AnimatePresence>
+              {showSettings && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute bottom-10 right-0 w-60 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                    {activeSettingKey ? (
+                      <button
+                        className="flex items-center gap-1.5 text-white/60 hover:text-white text-sm transition-colors"
+                        onClick={() => setActiveSettingKey(null)}
+                      >
+                        <ArrowLeft size={14} /> Back
+                      </button>
+                    ) : (
+                      <span className="text-white text-sm font-semibold">Settings</span>
+                    )}
+                    <button className="text-white/40 hover:text-white/70" onClick={() => setShowSettings(false)}>
+                      <X size={15} />
+                    </button>
+                  </div>
+                  {activeSettingKey ? (
+                    <div className="py-1.5">
+                      <p className="px-4 py-1 text-white/30 text-xs uppercase tracking-wider">{activeSettingKey}</p>
+                      {settingsMap[activeSettingKey].choices.map((c) => (
+                        <button
+                          key={c}
+                          className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+                          onClick={() => { settingsMap[activeSettingKey].onSelect(c); setActiveSettingKey(null); }}
+                        >
+                          {c}
+                          {settingsMap[activeSettingKey].value === c && <Check size={13} className="text-primary" />}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-1.5">
+                      {Object.entries(settingsMap).map(([key, opt]) => (
+                        <button
+                          key={key}
+                          className="w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
+                          onClick={() => setActiveSettingKey(key)}
+                        >
+                          <span className="text-white/80">{key}</span>
+                          <span className="flex items-center gap-1 text-white/40 text-xs">
+                            {opt.value} <ChevronRight size={11} />
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button aria-label="Picture in picture" className="text-white/70 hover:text-white transition-colors p-1" onClick={togglePip}>
+            <PictureInPicture2 size={20} />
+          </button>
+          <button aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} className="text-white/70 hover:text-white transition-colors p-1" onClick={toggleFullscreen}>
+            {fullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Username gate ──────────────────────────────────────────────────────────
+function UsernameGate({ onConfirm }: { onConfirm: (u: string) => void }) {
+  const [val, setVal] = useState("");
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex-1 flex items-center justify-center p-6"
+    >
+      <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8 max-w-sm w-full text-center">
+        <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-5">
+          <Play size={26} className="text-primary fill-current" />
+        </div>
+        <h2 className="text-white text-xl font-bold mb-2">Ready to watch?</h2>
+        <p className="text-white/50 text-sm mb-6">
+          Enter your Telegram username to verify your purchase and start streaming.
+        </p>
+        <form
+          onSubmit={(e) => { e.preventDefault(); const v = val.trim(); if (v.length > 1) onConfirm(v); }}
+          className="space-y-3"
+        >
+          <input
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            placeholder="your_username"
+            className="w-full bg-zinc-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 transition-colors"
+          />
+          <button
+            type="submit"
+            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl transition-colors"
+          >
+            Watch Now
+          </button>
+        </form>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
 export default function WatchMovie() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { username, save } = useSavedUsername();
-  const [inputVal, setInputVal] = useState(username.replace(/^@/, ""));
   const [confirmed, setConfirmed] = useState(!!username);
   const [videoError, setVideoError] = useState<string | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [liked, setLiked] = useState(false);
+  const [inWatchlist, setInWatchlist] = useState(false);
 
   const { data: movie, isLoading } = useGetMovie(id!, {
     query: { enabled: !!id, queryKey: getGetMovieQueryKey(id!) },
   });
+  const { data: moviesData } = useListMovies({ limit: 6 });
+  const recommendations = (moviesData?.movies ?? []).filter((m) => m._id !== id).slice(0, 6);
 
   const streamUrl = `/api/stream/movie/${id}${username ? `?username=${encodeURIComponent(username)}` : ""}`;
-  const checkUrl = `/api/stream/movie/${id}?check=true${username ? `&username=${encodeURIComponent(username)}` : ""}`;
 
-  useEffect(() => {
-    setVideoError(null);
-    setPlaying(false);
-  }, [id]);
+  useEffect(() => { setVideoError(null); }, [id]);
 
-  // Pre-flight check before loading the video element
-  const startPlayback = async () => {
-    setChecking(true);
-    setVideoError(null);
-    try {
-      const res = await fetch(checkUrl);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setVideoError(body.message || body.error || "Streaming unavailable. Please try again.");
-        return;
-      }
-      setPlaying(true);
-      setTimeout(() => {
-        videoRef.current?.play().catch(() => {
-          // Ignore interrupted play — onError will handle real failures
-        });
-      }, 100);
-    } catch {
-      setVideoError("Could not reach the server. Please check your connection and try again.");
-    } finally {
-      setChecking(false);
-    }
-  };
+  const handleConfirm = (u: string) => { save(u); setConfirmed(true); };
 
-  const handleConfirmUsername = (e: React.FormEvent) => {
-    e.preventDefault();
-    const val = inputVal.trim();
-    if (val.length > 1) {
-      save(val);
-      setConfirmed(true);
-    }
-  };
-
-  const toggleFullscreen = () => {
-    if (!videoRef.current) return;
-    document.fullscreenElement
-      ? document.exitFullscreen()
-      : videoRef.current.requestFullscreen();
-  };
+  const needsMtproto =
+    videoError?.includes("MTProto") || videoError?.includes("large") ||
+    videoError?.includes("20 MB") || videoError?.includes("Admin");
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="animate-spin text-primary" size={40} />
-        </div>
-      </Layout>
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={40} />
+      </div>
     );
   }
 
   if (!movie) {
     return (
-      <Layout>
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          Movie not found.
-        </div>
-      </Layout>
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white/50">
+        Movie not found.
+      </div>
     );
   }
 
-  const needsMtproto =
-    videoError?.includes("MTProto") ||
-    videoError?.includes("large") ||
-    videoError?.includes("Admin") ||
-    videoError?.includes("too large") ||
-    videoError?.includes("20 MB");
-
   return (
-    <Layout>
-      <div className="w-full min-h-screen bg-black flex flex-col">
-        {/* Top bar */}
-        <div className="flex items-center gap-4 px-4 py-3 bg-black/80 backdrop-blur border-b border-white/10">
-          <button
-            onClick={() => navigate(`/movie/${id}`)}
-            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm font-medium"
-          >
-            <ArrowLeft size={18} />
-            Back
-          </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-white font-bold text-lg truncate">{movie.title}</h1>
-            <p className="text-white/50 text-xs">{movie.year} · {movie.quality} · {movie.duration}</p>
-          </div>
-          <button
-            onClick={toggleFullscreen}
-            className="text-white/60 hover:text-white transition-colors"
-            title="Fullscreen"
-          >
-            <Maximize2 size={18} />
-          </button>
+    <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col font-sans">
+      {/* ── Nav ─────────────────────────────────────────────────────────── */}
+      <nav className="sticky top-0 z-50 flex items-center gap-3 px-4 md:px-6 h-14 bg-[#0a0a0f]/90 backdrop-blur-xl border-b border-white/[0.06]">
+        <button
+          onClick={() => navigate(`/movie/${id}`)}
+          className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm"
+        >
+          <ChevronLeft size={18} />
+          <span className="hidden sm:inline">Back</span>
+        </button>
+        <div className="w-px h-4 bg-white/10 mx-1" />
+        <div className="flex-1 min-w-0">
+          <h1 className="text-white font-bold text-sm md:text-base truncate">{movie.title}</h1>
+          {movie.year && <p className="text-white/40 text-xs hidden sm:block">{movie.year} · {movie.quality}</p>}
         </div>
+        <button
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+            inWatchlist
+              ? "bg-primary/20 text-primary border-primary/30"
+              : "bg-white/5 text-white/60 hover:text-white border-white/10"
+          }`}
+          onClick={() => setInWatchlist((w) => !w)}
+        >
+          {inWatchlist ? <Check size={14} /> : <Plus size={14} />}
+          <span className="hidden sm:inline">{inWatchlist ? "Saved" : "Watchlist"}</span>
+        </button>
+      </nav>
 
-        {/* Username gate */}
-        {!confirmed ? (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-zinc-900 border border-white/10 rounded-2xl p-8 max-w-sm w-full text-center"
-            >
-              <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-5">
-                <Play size={26} className="text-primary fill-current" />
-              </div>
-              <h2 className="text-white text-xl font-bold mb-2">Ready to watch?</h2>
-              <p className="text-white/50 text-sm mb-6">
-                Enter your Telegram username to verify your purchase and start streaming.
-              </p>
-              <form onSubmit={handleConfirmUsername} className="space-y-3">
-                <input
-                  value={inputVal}
-                  onChange={(e) => setInputVal(e.target.value)}
-                  placeholder="your_username"
-                  className="w-full bg-zinc-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 transition-colors"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl transition-colors"
-                >
-                  Watch Now
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center bg-black p-4">
-            {videoError ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="max-w-lg text-center space-y-4"
+      {/* ── Player area ──────────────────────────────────────────────────── */}
+      {!confirmed ? (
+        <UsernameGate onConfirm={handleConfirm} />
+      ) : videoError ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex-1 flex items-center justify-center p-6"
+        >
+          <div className="max-w-md text-center space-y-4">
+            <div className="w-14 h-14 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle size={26} className="text-destructive" />
+            </div>
+            <h2 className="text-white text-xl font-bold">Can't stream this movie</h2>
+            <p className="text-white/50 text-sm leading-relaxed">{videoError}</p>
+            {needsMtproto && (
+              <a
+                href="/admin/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl transition-colors"
               >
-                <div className="w-14 h-14 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
-                  <AlertCircle size={26} className="text-destructive" />
-                </div>
-                <h2 className="text-white text-xl font-bold">Can't stream this movie</h2>
-                <p className="text-white/50 text-sm leading-relaxed">{videoError}</p>
-
-                {needsMtproto ? (
-                  <a
-                    href="/admin/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl transition-colors"
-                  >
-                    <ExternalLink size={15} />
-                    Open Admin → Telegram Connect
-                  </a>
-                ) : null}
-
-                <div>
-                  <button
-                    onClick={() => { setVideoError(null); setPlaying(false); }}
-                    className="text-white/40 hover:text-white/70 text-sm transition-colors underline underline-offset-2"
-                  >
-                    Try again
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="w-full max-w-5xl">
-                {!playing && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="relative rounded-2xl overflow-hidden aspect-video bg-zinc-900 mb-4 cursor-pointer group"
-                    onClick={checking ? undefined : startPlayback}
-                  >
-                    <img
-                      src={movie.bannerUrl || movie.posterUrl}
-                      alt={movie.title}
-                      className="w-full h-full object-cover opacity-40"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {checking ? (
-                        <div className="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20">
-                          <Loader2 size={32} className="text-white animate-spin" />
-                        </div>
-                      ) : (
-                        <div className="w-20 h-20 bg-white/10 group-hover:bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors border border-white/20">
-                          <Play size={36} className="text-white fill-white ml-1" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-                      <p className="text-white font-bold text-xl">{movie.title}</p>
-                      <p className="text-white/60 text-sm">{movie.duration} · {movie.quality}</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {playing && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="rounded-2xl overflow-hidden aspect-video bg-black"
-                  >
-                    <video
-                      ref={videoRef}
-                      src={streamUrl}
-                      controls
-                      autoPlay
-                      className="w-full h-full"
-                      crossOrigin="anonymous"
-                      onError={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const code = e.currentTarget.error?.code;
-                        setVideoError(
-                          code === 4
-                            ? "File is too large for the Bot API (>20 MB). Go to Admin → Telegram Connect and sign in to stream large files."
-                            : `Playback error (code ${code ?? "unknown"}). Make sure the movie file is attached and try again.`
-                        );
-                        setPlaying(false);
-                      }}
-                      style={{ display: "block" }}
-                    >
-                      {movie.subtitleUrl && (
-                        <track
-                          kind="subtitles"
-                          src={movie.subtitleUrl}
-                          srcLang="en"
-                          label="English"
-                          default
-                        />
-                      )}
-                    </video>
-                  </motion.div>
-                )}
-
-                <div className="mt-4 flex items-center justify-between text-white/40 text-xs px-1">
-                  <span>Streaming as <span className="text-white/60 font-medium">{username}</span></span>
-                  <button
-                    onClick={() => { setConfirmed(false); setPlaying(false); setVideoError(null); }}
-                    className="hover:text-white/60 transition-colors"
-                  >
-                    Switch account
-                  </button>
-                </div>
-              </div>
+                <ExternalLink size={15} />
+                Open Admin → Telegram Connect
+              </a>
             )}
+            <div>
+              <button
+                onClick={() => setVideoError(null)}
+                className="text-white/40 hover:text-white/70 text-sm transition-colors underline underline-offset-2"
+              >
+                Try again
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-    </Layout>
+        </motion.div>
+      ) : (
+        <>
+          {/* Player */}
+          <div className="w-full bg-black">
+            <VideoPlayer
+              src={streamUrl}
+              poster={movie.bannerUrl || movie.posterUrl}
+              subtitleUrl={movie.subtitleUrl}
+              onError={setVideoError}
+              onBack={() => navigate(`/movie/${id}`)}
+            />
+          </div>
+
+          {/* ── Content ─────────────────────────────────────────────────── */}
+          <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left column */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Title & meta */}
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-white font-bold text-xl md:text-2xl">{movie.title}</h2>
+                  {movie.rating && (
+                    <span className="px-1.5 py-0.5 border border-white/20 rounded text-xs text-white/50">
+                      {movie.rating}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/40">
+                  {movie.year && <span>{movie.year}</span>}
+                  {movie.imdbRating && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-white/20" />
+                      <span className="flex items-center gap-1">
+                        <Star size={12} className="fill-amber-400 text-amber-400" />
+                        <span className="text-white/60 font-medium">{movie.imdbRating}</span>
+                      </span>
+                    </>
+                  )}
+                  {movie.duration && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-white/20" />
+                      <span>{movie.duration}</span>
+                    </>
+                  )}
+                  {movie.quality && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-white/20" />
+                      <span className="text-primary">{movie.quality}</span>
+                    </>
+                  )}
+                </div>
+                {movie.genres && movie.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {movie.genres.map((g) => (
+                      <span key={g} className="px-2.5 py-1 bg-white/[0.06] rounded-full text-xs text-white/60">
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {movie.description && (
+                  <p className="text-white/60 text-sm leading-relaxed">{movie.description}</p>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setLiked((l) => !l)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                    liked
+                      ? "bg-red-500/10 text-red-400 border-red-500/30"
+                      : "bg-white/[0.05] text-white/60 border-white/10 hover:border-white/20 hover:text-white"
+                  }`}
+                >
+                  <Heart size={15} className={liked ? "fill-red-400" : ""} />
+                  {liked ? "Liked" : "Like"}
+                </button>
+                <button
+                  onClick={() => setInWatchlist((w) => !w)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                    inWatchlist
+                      ? "bg-primary/10 text-primary border-primary/30"
+                      : "bg-white/[0.05] text-white/60 border-white/10 hover:border-white/20 hover:text-white"
+                  }`}
+                >
+                  {inWatchlist ? <Check size={15} /> : <Plus size={15} />}
+                  {inWatchlist ? "In Watchlist" : "Watchlist"}
+                </button>
+                <button
+                  onClick={() => navigator.share?.({ title: movie.title, url: window.location.href }).catch(() => {})}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-white/[0.05] text-white/60 border border-white/10 hover:border-white/20 hover:text-white transition-all"
+                >
+                  <Share2 size={15} />
+                  Share
+                </button>
+                {movie.telegramFileId && (
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-white/[0.05] text-white/60 border border-white/10 hover:border-white/20 hover:text-white transition-all">
+                    <Download size={15} />
+                    Download
+                  </button>
+                )}
+                <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-white/[0.05] text-white/50 border border-white/10 hover:border-red-500/20 hover:text-red-400 transition-all ml-auto">
+                  <Flag size={14} />
+                  Report
+                </button>
+              </div>
+
+              {/* Stats */}
+              <div className="flex flex-wrap gap-4 py-3 border-y border-white/[0.05] text-sm text-white/40">
+                <span className="flex items-center gap-1.5">
+                  <Eye size={14} />
+                  Streaming as <span className="text-white/60 font-medium">{username}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <MessageCircle size={14} />
+                  Reviews & comments below
+                </span>
+                <button
+                  onClick={() => { setConfirmed(false); setVideoError(null); }}
+                  className="flex items-center gap-1.5 hover:text-white/60 transition-colors ml-auto"
+                >
+                  Switch account
+                </button>
+              </div>
+
+              {/* Reviews */}
+              <ReviewSection contentType="movie" contentId={id!} />
+            </div>
+
+            {/* Right column */}
+            <div className="space-y-5">
+              {/* File info */}
+              {(movie.size || movie.quality) && (
+                <div className="rounded-2xl bg-zinc-900/60 border border-white/[0.06] px-4 py-3 space-y-1">
+                  <p className="text-white/40 text-xs uppercase tracking-wider">File Info</p>
+                  {movie.quality && (
+                    <p className="text-white/70 text-sm flex items-center justify-between">
+                      <span>Quality</span><span className="text-primary font-medium">{movie.quality}</span>
+                    </p>
+                  )}
+                  {movie.size && (
+                    <p className="text-white/70 text-sm flex items-center justify-between">
+                      <span>Size</span><span className="text-white/50">{movie.size}</span>
+                    </p>
+                  )}
+                  {movie.duration && (
+                    <p className="text-white/70 text-sm flex items-center justify-between">
+                      <span>Runtime</span><span className="text-white/50">{movie.duration}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* More like this */}
+              {recommendations.length > 0 && (
+                <div>
+                  <h3 className="text-white font-semibold text-sm mb-3">More Like This</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {recommendations.map((m) => (
+                      <Link key={m._id} href={`/movie/${m._id}`} className="group block cursor-pointer">
+                        <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-800 mb-2">
+                          <img
+                            src={m.posterUrl}
+                            alt={m.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                          {m.imdbRating && (
+                            <div className="absolute bottom-1.5 right-1.5 bg-black/70 rounded px-1.5 py-0.5 text-xs text-amber-400 font-medium flex items-center gap-0.5">
+                              <Star size={9} className="fill-amber-400" />
+                              {m.imdbRating}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-white/80 text-xs font-medium truncate group-hover:text-white transition-colors">
+                          {m.title}
+                        </p>
+                        <p className="text-white/30 text-xs">{m.year}</p>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
