@@ -1,0 +1,76 @@
+Here are all the TypeScript errors from your build:
+
+1. userAuth.ts:32 — Missing return
+
+error TS7030: Not all code paths return a value.
+
+Function at line 32 needs a return statement on all branches.
+
+2. admin.ts:705 — Wrong property name
+
+error TS2769: No overload matches this call.
+Object literal may only specify known properties, but 'preserveNullAndEmpty' does not exist in type '{ path: string; includeArrayIndex?: string | undefined; preserveNullAndEmptyArrays?: boolean | undefined; }'.
+Did you mean to write 'preserveNullAndEmptyArrays'?
+
+Change preserveNullAndEmpty → preserveNullAndEmptyArrays
+
+3. adminRequests.ts:33 — Type mismatch in MongoDB query
+
+error TS2769: No overload matches this call.
+Argument of type '{ status: string; } | { status?: undefined; }' is not assignable to parameter of type '_QueryFilter<...>'
+Type 'string' is not assignable to type 'StrictCondition<ApplyBasicQueryCasting<NonNullable<RequestStatus>>> | undefined'.
+
+status field expects a specific enum type, not a string.
+
+4. mtproto.ts:125, 219 — Missing return statements
+
+error TS7030: Not all code paths return a value.
+
+Both functions need return statements.
+
+5. research.ts:87, 89, 102, 103, etc. — Accessing unknown type (40+ errors)
+
+error TS18046: 'search' is of type 'unknown'.
+error TS18046: 'videos' is of type 'unknown'.
+error TS18046: 'details' is of type 'unknown'.
+
+You're accessing properties on variables typed as unknown. Add type guards:
+
+if (typeof search === 'object' && search !== null && 'property' in search) {
+  // now safe to access search.property
+}
+
+6. reviews.ts:12, 22, 30, 35 — Type mismatches
+
+error TS2769: No overload matches this call.
+Type 'string' is not assignable to type 'RegExp | "reply" | "like" | "request_status" | undefined'.
+Type 'string | string[]' is not assignable to parameter of type 'string'.
+
+contentType field expects an enum, not a string.
+
+7. stream.ts:121, 174, 198, 322 — Type issues & missing returns
+
+error TS2322: Type 'bigint' is not assignable to type 'BigInteger'.
+error TS2345: Argument of type 'string | number | true | string[] | AxiosHeaders' is not assignable to parameter of type 'string | number | readonly string[]'.
+error TS7030: Not all code paths return a value.
+
+8. subtitles.ts:71, 243, 275, 320, 331 — Type issues & missing returns
+
+error TS2322: Type 'bigint' is not assignable to type 'BigInteger'.
+error TS7030: Not all code paths return a value.
+
+9. telegram.ts:106, 115, 124, 142, 173 — Null safety
+
+error TS18047: 'bot' is possibly 'null'.
+
+Add null checks before using bot:
+
+if (bot) {
+  // use bot
+}
+
+10. gramjs.ts:257 — Type mismatch
+
+error TS2345: Argument of type '{}' is not assignable to parameter of type 'void'.
+
+Want me to create a PR to fix all of these?
