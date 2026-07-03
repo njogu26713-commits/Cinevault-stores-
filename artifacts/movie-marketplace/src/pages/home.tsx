@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Film, PlayCircle, Loader2, ChevronLeft, ChevronRight,
   Star, Download, Sparkles, Search, X, Flame, Clock3, Clock,
+  Bell, BellOff, Check, Send,
 } from "lucide-react";
 import {
   useListMovies,
@@ -118,15 +119,54 @@ function MovieRow({
 
 // ── Coming Soon card ──────────────────────────────────────────────────────────
 
+type NotifyState = "idle" | "open" | "loading" | "success" | "already";
+
 function ComingSoonCard({ movie, index = 0 }: { movie: Movie; index?: number }) {
+  const [notifyState, setNotifyState] = useState<NotifyState>("idle");
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const openForm = () => {
+    setNotifyState("open");
+    setError("");
+    setTimeout(() => inputRef.current?.focus(), 60);
+  };
+
+  const closeForm = () => {
+    setNotifyState("idle");
+    setUsername("");
+    setError("");
+  };
+
+  const submit = async () => {
+    const clean = username.replace(/^@/, "").trim();
+    if (!clean) { setError("Enter your Telegram username"); return; }
+    setNotifyState("loading");
+    setError("");
+    try {
+      const res = await fetch(`/api/movies/${movie.id}/notify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegramUsername: clean }),
+      });
+      if (!res.ok) throw new Error("Server error");
+      const data = await res.json() as { ok: boolean; alreadySubscribed: boolean };
+      setNotifyState(data.alreadySubscribed ? "already" : "success");
+    } catch {
+      setNotifyState("open");
+      setError("Something went wrong. Try again.");
+    }
+  };
+
+  const done = notifyState === "success" || notifyState === "already";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.05, 0.4), duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ scale: 1.04, zIndex: 10 }}
       className="group relative flex-shrink-0"
-      style={{ transformOrigin: "center bottom" }}
     >
       <div className="block">
         <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-white/5 shadow-lg">
@@ -161,7 +201,83 @@ function ComingSoonCard({ movie, index = 0 }: { movie: Movie; index?: number }) 
           </h3>
           <div className="flex items-center justify-between mt-1">
             <span className="text-xs text-white/30">{movie.genre[0]}</span>
-            <span className="text-xs font-bold text-purple-400/70">Soon</span>
+          </div>
+
+          {/* Notify Me section */}
+          <div className="mt-2">
+            <AnimatePresence mode="wait">
+              {notifyState === "idle" && (
+                <motion.button
+                  key="bell-btn"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={openForm}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-300 text-xs font-semibold hover:bg-purple-500/20 hover:border-purple-500/50 transition-all"
+                >
+                  <Bell size={11} />
+                  Notify Me
+                </motion.button>
+              )}
+
+              {(notifyState === "open" || notifyState === "loading") && (
+                <motion.div
+                  key="notify-form"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-white/30 text-[11px] shrink-0">@</span>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && submit()}
+                      placeholder="username"
+                      disabled={notifyState === "loading"}
+                      className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-xs text-white placeholder-white/20 outline-none focus:border-purple-500/50 focus:bg-white/8 transition-all disabled:opacity-50"
+                    />
+                    <button
+                      onClick={submit}
+                      disabled={notifyState === "loading"}
+                      className="shrink-0 w-6 h-6 rounded-md bg-purple-600 hover:bg-purple-500 flex items-center justify-center transition-colors disabled:opacity-50"
+                    >
+                      {notifyState === "loading"
+                        ? <Loader2 size={10} className="animate-spin text-white" />
+                        : <Send size={10} className="text-white" />}
+                    </button>
+                    <button
+                      onClick={closeForm}
+                      disabled={notifyState === "loading"}
+                      className="shrink-0 w-6 h-6 rounded-md border border-white/10 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                  {error && <p className="text-[10px] text-red-400 mt-1 leading-tight">{error}</p>}
+                </motion.div>
+              )}
+
+              {done && (
+                <motion.div
+                  key="notify-done"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`flex items-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium ${
+                    notifyState === "already"
+                      ? "bg-white/5 border border-white/10 text-white/40"
+                      : "bg-green-500/15 border border-green-500/30 text-green-400"
+                  }`}
+                >
+                  {notifyState === "already"
+                    ? <><BellOff size={11} /> Already subscribed</>
+                    : <><Check size={11} /> You&apos;ll be notified!</>}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

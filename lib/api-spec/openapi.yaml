@@ -101,6 +101,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/Movie"
 
+
   /movies/featured:
     get:
       operationId: listFeaturedMovies

@@ -237,6 +237,31 @@ async function sendFileToChat(
   });
 }
 
+export async function notifyComingSoonAvailable(params: {
+  telegramUsername: string;
+  movieTitle: string;
+  movieId: string;
+}): Promise<void> {
+  const { telegramUsername, movieTitle, movieId } = params;
+  const telegramBot = getTelegramBot();
+  const username = telegramUsername.replace(/^@/, "");
+  const chatId = await resolveChatId(telegramBot, username);
+
+  await telegramBot.sendMessage(
+    chatId,
+    `🎬 *CineVault* — Great news!\n\n*${movieTitle}* is now available for purchase!\n\nHead to CineVault to buy it now 🍿`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "🎬 Buy Now", url: `https://t.me/${process.env["TELEGRAM_BOT_USERNAME"] || "cinevaultbot"}` }
+        ]]
+      }
+    }
+  );
+  logger.info({ username, movieTitle, movieId }, "Coming-soon notification sent");
+}
+
 export async function deliverMovieToUser(params: {
   telegramUsername: string;
   telegramFileId: string;
