@@ -268,27 +268,40 @@ export function SeriesForm() {
         const formData = new FormData();
         formData.append("chunk", chunk);
 
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.upload.addEventListener("progress", (event) => {
-            if (event.lengthComputable) {
-              const overall = Math.round(((i + event.loaded / event.total) / totalChunks) * 100);
-              setUploadProgress(overall);
-            }
-          });
-          xhr.addEventListener("load", () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
-              resolve();
-            } else {
-              try { reject(new Error(JSON.parse(xhr.responseText).error || "Chunk upload failed")); }
-              catch { reject(new Error("Chunk upload failed")); }
-            }
-          });
-          xhr.addEventListener("error", () => reject(new Error("Network error")));
-          xhr.open("POST", `/api/admin/mtproto/chunks/${uploadId}/${i}`);
-          xhr.send(formData);
-        });
+        // Retry each chunk up to 3 times on transient failure
+        let lastErr: Error | null = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              xhr.upload.addEventListener("progress", (event) => {
+                if (event.lengthComputable) {
+                  const overall = Math.round(((i + event.loaded / event.total) / totalChunks) * 100);
+                  setUploadProgress(overall);
+                }
+              });
+              xhr.addEventListener("load", () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
+                  resolve();
+                } else {
+                  try { reject(new Error(JSON.parse(xhr.responseText).error || "Chunk upload failed")); }
+                  catch { reject(new Error(`Chunk ${i} upload failed (HTTP ${xhr.status})`)); }
+                }
+              });
+              xhr.addEventListener("error", () => reject(new Error(`Network error on chunk ${i}`)));
+              xhr.addEventListener("abort", () => reject(new Error(`Chunk ${i} upload aborted`)));
+              xhr.open("POST", `/api/admin/mtproto/chunks/${uploadId}/${i}`);
+              xhr.send(formData);
+            });
+            lastErr = null;
+            break; // success
+          } catch (err: any) {
+            lastErr = err;
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          }
+        }
+        if (lastErr) throw lastErr;
       }
 
       // Phase 2: assemble chunks and start Telegram upload

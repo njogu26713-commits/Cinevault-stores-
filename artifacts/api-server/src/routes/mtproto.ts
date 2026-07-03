@@ -338,31 +338,63 @@ const chunkUpload = multer({
 async function assembleChunks(uploadId: string, totalChunks: number, ext: string): Promise<string> {
   const chunkDir = path.join(os.tmpdir(), `cv_chunks_${uploadId}`);
   const outputPath = path.join(os.tmpdir(), `cv_assembled_${uploadId}${ext}`);
-  const writeStream = fs.createWriteStream(outputPath);
 
+  // Pre-flight: verify every chunk exists before opening the output file
   for (let i = 0; i < totalChunks; i++) {
     const chunkPath = path.join(chunkDir, `chunk_${String(i).padStart(8, "0")}`);
-    await new Promise<void>((resolve, reject) => {
-      const readStream = fs.createReadStream(chunkPath);
-      readStream.on("error", reject);
-      readStream.on("end", resolve);
-      readStream.pipe(writeStream, { end: false });
-    });
+    if (!fs.existsSync(chunkPath)) {
+      throw new Error(`Chunk ${i} of ${totalChunks} is missing — upload may have been interrupted. Please try again.`);
+    }
   }
 
-  await new Promise<void>((resolve, reject) => {
-    writeStream.end((err?: Error | null) => (err ? reject(err) : resolve()));
-  });
+  const writeStream = fs.createWriteStream(outputPath);
+
+  try {
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkPath = path.join(chunkDir, `chunk_${String(i).padStart(8, "0")}`);
+      await new Promise<void>((resolve, reject) => {
+        const readStream = fs.createReadStream(chunkPath);
+        readStream.on("error", reject);
+        readStream.on("end", resolve);
+        readStream.pipe(writeStream, { end: false });
+      });
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      writeStream.end((err?: Error | null) => (err ? reject(err) : resolve()));
+    });
+  } catch (err) {
+    // Close and remove partial output, then rethrow
+    try { writeStream.destroy(); } catch {}
+    try { fs.unlinkSync(outputPath); } catch {}
+    throw err;
+  }
 
   try { fs.rmSync(chunkDir, { recursive: true, force: true }); } catch {}
   return outputPath;
 }
 
 // ── POST /admin/mtproto/chunks/:uploadId/:chunkIndex ──────────────────────────
-router.post("/chunks/:uploadId/:chunkIndex", chunkUpload.single("chunk"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No chunk received" });
-  return res.json({ received: true, chunkIndex: req.params.chunkIndex });
-});
+router.post(
+  "/chunks/:uploadId/:chunkIndex",
+  (req, res, next) => {
+    chunkUpload.single("chunk")(req, res, (err) => {
+      if (err) {
+        // Multer errors (LIMIT_FILE_SIZE, etc.) — return JSON so the frontend can handle them
+        const msg = (err as any)?.code === "LIMIT_FILE_SIZE"
+          ? "Chunk too large — must be ≤ 60 MB"
+          : ((err as any)?.message ?? "Chunk upload error");
+        res.status(400).json({ error: msg });
+        return;
+      }
+      next();
+    });
+  },
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No chunk received" });
+    return res.json({ received: true, chunkIndex: req.params.chunkIndex });
+  }
+);
 
 // ── POST /admin/mtproto/movies/:id/upload-chunked ─────────────────────────────
 router.post("/movies/:id/upload-chunked", async (req, res) => {
