@@ -24,6 +24,7 @@ export interface SeriesInput {
   year: number;
   status?: SeriesInputStatus;
   featured?: boolean;
+  comingSoon?: boolean;
   seasons?: Season[];
   pricePerSeason: number;
   pricePerEpisode: number;

@@ -56,6 +56,7 @@ const seriesSchema = z.object({
   year: z.coerce.number().min(1900).max(2100),
   status: z.enum(["Ongoing", "Completed", "Cancelled"]).default("Ongoing"),
   featured: z.boolean().default(false),
+  comingSoon: z.boolean().default(false),
   pricePerSeason: z.coerce.number().min(0, "Price required"),
   pricePerEpisode: z.coerce.number().min(0, "Price required"),
   seasons: z.array(seasonSchema),
@@ -113,6 +114,7 @@ export function SeriesForm() {
       year: new Date().getFullYear(),
       status: "Ongoing",
       featured: false,
+      comingSoon: false,
       pricePerSeason: 0,
       pricePerEpisode: 0,
       seasons: [],
@@ -164,6 +166,7 @@ export function SeriesForm() {
         year: d.year || new Date().getFullYear(),
         status: statusMap[d.status] || "Ongoing",
         featured: d.ai?.featured || false,
+        comingSoon: false,
         pricePerSeason: d.ai?.suggestedPriceKes || 300,
         pricePerEpisode: Math.round((d.ai?.suggestedPriceKes || 300) / 6),
         seasons: mappedSeasons,
@@ -188,6 +191,7 @@ export function SeriesForm() {
         year: existing.year ?? new Date().getFullYear(),
         status: (existing.status as "Ongoing" | "Completed" | "Cancelled") ?? "Ongoing",
         featured: existing.featured ?? false,
+        comingSoon: (existing as any).comingSoon ?? false,
         pricePerSeason: existing.pricePerSeason ?? 0,
         pricePerEpisode: existing.pricePerEpisode ?? 0,
         seasons: existing.seasons?.map((s) => ({
@@ -546,6 +550,15 @@ export function SeriesForm() {
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                     <FormLabel className="!mt-0">Featured on homepage</FormLabel>
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="comingSoon" render={({ field }) => (
+                  <FormItem className="flex items-center gap-3 md:col-span-2">
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel className="!mt-0">Coming Soon (blurred card + Notify Me on homepage)</FormLabel>
                   </FormItem>
                 )} />
               </div>

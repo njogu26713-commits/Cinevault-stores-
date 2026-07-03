@@ -989,6 +989,83 @@ export const useCreateSeries = <TError = ErrorType<unknown>,
       return useMutation(getCreateSeriesMutationOptions(options));
     }
 
+export const getListComingSoonSeriesUrl = () => {
+
+
+
+
+  return `/api/series/coming-soon`
+}
+
+/**
+ * @summary Get coming-soon series
+ */
+export const listComingSoonSeries = async ( options?: RequestInit): Promise<Series[]> => {
+
+  return customFetch<Series[]>(getListComingSoonSeriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListComingSoonSeriesQueryKey = () => {
+    return [
+    `/api/series/coming-soon`
+    ] as const;
+    }
+
+
+export const getListComingSoonSeriesQueryOptions = <TData = Awaited<ReturnType<typeof listComingSoonSeries>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listComingSoonSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListComingSoonSeriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listComingSoonSeries>>> = ({ signal }) => listComingSoonSeries({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listComingSoonSeries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListComingSoonSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof listComingSoonSeries>>>
+export type ListComingSoonSeriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get coming-soon series
+ */
+
+export function useListComingSoonSeries<TData = Awaited<ReturnType<typeof listComingSoonSeries>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listComingSoonSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListComingSoonSeriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListFeaturedSeriesUrl = () => {
 
 

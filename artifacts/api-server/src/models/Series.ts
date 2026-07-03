@@ -28,6 +28,7 @@ export interface ISeries extends Document {
   year: number;
   status: "Ongoing" | "Completed" | "Cancelled";
   featured: boolean;
+  comingSoon: boolean;
   seasons: ISeason[];
   pricePerSeason: number;
   pricePerEpisode: number;
@@ -74,6 +75,7 @@ const SeriesSchema = new Schema<ISeries>(
       default: "Ongoing",
     },
     featured: { type: Boolean, default: false },
+    comingSoon: { type: Boolean, default: false },
     seasons: [SeasonSchema],
     pricePerSeason: { type: Number, required: true, min: 0 },
     pricePerEpisode: { type: Number, required: true, min: 0, default: 0 },

@@ -25,6 +25,7 @@ export interface Series {
   year: number;
   status: SeriesStatus;
   featured: boolean;
+  comingSoon: boolean;
   totalSeasons: number;
   totalEpisodes: number;
   pricePerSeason: number;

@@ -12,8 +12,10 @@ import {
   useListGenres,
   useGetMovieStats,
   useListComingSoonMovies,
+  useListComingSoonSeries,
   getListMoviesQueryKey,
   type Movie,
+  type Series,
 } from "@workspace/api-client-react";
 import { Layout } from "../components/layout";
 import { MovieCard } from "../components/movie-card";
@@ -121,7 +123,7 @@ function MovieRow({
 
 type NotifyState = "idle" | "open" | "loading" | "success" | "already";
 
-function ComingSoonCard({ movie, index = 0 }: { movie: Movie; index?: number }) {
+function ComingSoonCard({ movie, index = 0, isSeries = false }: { movie: Movie; index?: number; isSeries?: boolean }) {
   const [notifyState, setNotifyState] = useState<NotifyState>("idle");
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
@@ -144,8 +146,9 @@ function ComingSoonCard({ movie, index = 0 }: { movie: Movie; index?: number }) 
     if (!clean) { setError("Enter your Telegram username"); return; }
     setNotifyState("loading");
     setError("");
+    const endpoint = isSeries ? `/api/series/${movie.id}/notify` : `/api/movies/${movie.id}/notify`;
     try {
-      const res = await fetch(`/api/movies/${movie.id}/notify`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ telegramUsername: clean }),
@@ -287,7 +290,7 @@ function ComingSoonCard({ movie, index = 0 }: { movie: Movie; index?: number }) 
 
 // ── Coming Soon row ───────────────────────────────────────────────────────────
 
-function ComingSoonRow({ movies }: { movies: Movie[] }) {
+function ComingSoonRow({ movies, label = "" }: { movies: Movie[]; label?: string }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-80px" });
@@ -326,7 +329,7 @@ function ComingSoonRow({ movies }: { movies: Movie[] }) {
       <div className="flex items-center justify-between px-8 mb-4">
         <div className="flex items-center gap-2.5">
           <span className="text-purple-400"><Clock size={18} /></span>
-          <h2 className="text-lg font-black text-white tracking-tight">Coming Soon</h2>
+          <h2 className="text-lg font-black text-white tracking-tight">Coming Soon{label ? ` · ${label}` : ""}</h2>
           <span className="text-xs text-white/25 font-medium mt-0.5">{movies.length} titles</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -345,7 +348,7 @@ function ComingSoonRow({ movies }: { movies: Movie[] }) {
         <div ref={rowRef} className="flex gap-4 overflow-x-auto scrollbar-hide px-8 pb-2" style={{ scrollSnapType: "x mandatory" }}>
           {movies.map((movie, i) => (
             <div key={movie.id} className="w-[160px] sm:w-[180px] md:w-[200px]" style={{ scrollSnapAlign: "start", flexShrink: 0 }}>
-              <ComingSoonCard movie={movie} index={i} />
+              <ComingSoonCard movie={movie} index={i} isSeries={!!(movie as any)._seriesNotify} />
             </div>
           ))}
         </div>
@@ -372,6 +375,7 @@ export default function Home() {
   const { data: genres } = useListGenres();
   const { data: stats } = useGetMovieStats();
   const { data: comingSoonMovies } = useListComingSoonMovies();
+  const { data: comingSoonSeries } = useListComingSoonSeries();
 
   // Fetch all movies for row grouping
   const { data: allMoviesRes, isLoading: loadingAll } = useListMovies(
@@ -678,7 +682,22 @@ export default function Home() {
         /* Horizontal rows (default browse) */
         <div className="py-6">
           {comingSoonMovies && comingSoonMovies.length > 0 && (
-            <ComingSoonRow movies={comingSoonMovies} />
+            <ComingSoonRow movies={comingSoonMovies} label="Movies" />
+          )}
+
+          {comingSoonSeries && comingSoonSeries.length > 0 && (
+            <ComingSoonRow
+              movies={comingSoonSeries.map((s) => ({
+                id: s.id,
+                title: s.title,
+                posterUrl: s.posterUrl,
+                genre: s.genre,
+                quality: s.quality,
+                year: s.year,
+                _seriesNotify: true,
+              } as any))}
+              label="Series"
+            />
           )}
 
           {recentlyAdded.length > 0 && (

@@ -257,6 +257,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/Series"
 
+  /series/coming-soon:
+    get:
+      operationId: listComingSoonSeries
+      tags: [series]
+      summary: Get coming-soon series
+      responses:
+        "200":
+          description: Coming soon series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Series"
+
   /series/featured:
     get:
       operationId: listFeaturedSeries
@@ -846,6 +861,8 @@ components:
           enum: [Ongoing, Completed, Cancelled]
         featured:
           type: boolean
+        comingSoon:
+          type: boolean
         totalSeasons:
           type: integer
         totalEpisodes:
@@ -870,6 +887,7 @@ components:
         - year
         - status
         - featured
+        - comingSoon
         - totalSeasons
         - totalEpisodes
         - pricePerSeason
@@ -905,6 +923,8 @@ components:
           type: string
           enum: [Ongoing, Completed, Cancelled]
         featured:
+          type: boolean
+        comingSoon:
           type: boolean
         seasons:
           type: array

@@ -143,6 +143,7 @@ export interface Series {
   year: number;
   status: SeriesStatus;
   featured: boolean;
+  comingSoon: boolean;
   totalSeasons: number;
   totalEpisodes: number;
   pricePerSeason: number;
@@ -184,6 +185,7 @@ export interface SeriesInput {
   year: number;
   status?: SeriesInputStatus;
   featured?: boolean;
+  comingSoon?: boolean;
   seasons?: Season[];
   pricePerSeason: number;
   pricePerEpisode: number;

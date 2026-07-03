@@ -8,6 +8,7 @@ import { Movie } from "../models/Movie";
 import { Series } from "../models/Series";
 import { Order } from "../models/Order";
 import { MovieNotification } from "../models/MovieNotification";
+import { SeriesNotification } from "../models/SeriesNotification";
 import { getTelegramBot, getChannelFileBuffer, removeFromChannelBuffer, deliverMovieFromChannel } from "../services/telegram";
 import { logger } from "../lib/logger";
 import { getSetting, saveSettings } from "../lib/settings-store";
@@ -913,39 +914,60 @@ router.post("/orders/:id/redeliver", async (req, res) => {
   }
 });
 
-// GET /admin/movie-notifications — all coming-soon subscribers grouped by movie
+// GET /admin/movie-notifications — all coming-soon subscribers grouped by movie + series
 router.get("/movie-notifications", async (req, res) => {
   try {
-    // Get all notifications with movie info joined
-    const notifications = await MovieNotification.find({}).sort({ createdAt: -1 }).lean();
-    const movieIds = [...new Set(notifications.map((n) => n.movieId.toString()))];
-    const movies = await Movie.find({ _id: { $in: movieIds } })
-      .select("title posterUrl comingSoon")
-      .lean();
-
+    // Movies
+    const movieNotifs = await MovieNotification.find({}).sort({ createdAt: -1 }).lean();
+    const movieIds = [...new Set(movieNotifs.map((n) => n.movieId.toString()))];
+    const movies = await Movie.find({ _id: { $in: movieIds } }).select("title posterUrl comingSoon").lean();
     const movieMap = new Map(movies.map((m) => [m._id.toString(), m]));
 
-    const grouped = movieIds
-      .map((movieId) => {
-        const movie = movieMap.get(movieId);
-        if (!movie) return null;
-        const subs = notifications.filter((n) => n.movieId.toString() === movieId);
-        return {
-          movieId,
-          movieTitle: movie.title,
-          posterUrl: (movie as any).posterUrl ?? "",
-          pendingCount: subs.filter((s) => !s.notifiedAt).length,
-          notifiedCount: subs.filter((s) => !!s.notifiedAt).length,
-          subscribers: subs.map((s) => ({
-            telegramUsername: s.telegramUsername,
-            notifiedAt: s.notifiedAt ? s.notifiedAt.toISOString() : null,
-            createdAt: (s as any).createdAt?.toISOString?.() ?? "",
-          })),
-        };
-      })
-      .filter(Boolean);
+    const movieGroups = movieIds.map((movieId) => {
+      const movie = movieMap.get(movieId);
+      if (!movie) return null;
+      const subs = movieNotifs.filter((n) => n.movieId.toString() === movieId);
+      return {
+        id: movieId,
+        type: "movie" as const,
+        title: movie.title,
+        posterUrl: (movie as any).posterUrl ?? "",
+        pendingCount: subs.filter((s) => !s.notifiedAt).length,
+        notifiedCount: subs.filter((s) => !!s.notifiedAt).length,
+        subscribers: subs.map((s) => ({
+          telegramUsername: s.telegramUsername,
+          notifiedAt: s.notifiedAt ? s.notifiedAt.toISOString() : null,
+          createdAt: (s as any).createdAt?.toISOString?.() ?? "",
+        })),
+      };
+    }).filter(Boolean);
 
-    return res.json(grouped);
+    // Series
+    const seriesNotifs = await SeriesNotification.find({}).sort({ createdAt: -1 }).lean();
+    const seriesIds = [...new Set(seriesNotifs.map((n) => n.seriesId.toString()))];
+    const seriesList = await Series.find({ _id: { $in: seriesIds } }).select("title posterUrl comingSoon").lean();
+    const seriesMap = new Map(seriesList.map((s) => [s._id.toString(), s]));
+
+    const seriesGroups = seriesIds.map((seriesId) => {
+      const series = seriesMap.get(seriesId);
+      if (!series) return null;
+      const subs = seriesNotifs.filter((n) => n.seriesId.toString() === seriesId);
+      return {
+        id: seriesId,
+        type: "series" as const,
+        title: series.title,
+        posterUrl: (series as any).posterUrl ?? "",
+        pendingCount: subs.filter((s) => !s.notifiedAt).length,
+        notifiedCount: subs.filter((s) => !!s.notifiedAt).length,
+        subscribers: subs.map((s) => ({
+          telegramUsername: s.telegramUsername,
+          notifiedAt: s.notifiedAt ? s.notifiedAt.toISOString() : null,
+          createdAt: (s as any).createdAt?.toISOString?.() ?? "",
+        })),
+      };
+    }).filter(Boolean);
+
+    return res.json([...movieGroups, ...seriesGroups]);
   } catch (err) {
     logger.error({ err }, "Failed to fetch movie notifications");
     return res.status(500).json({ error: "Internal server error" });

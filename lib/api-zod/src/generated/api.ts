@@ -280,6 +280,7 @@ export const ListSeriesResponse = zod.object({
   "year": zod.number(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
@@ -317,6 +318,7 @@ export const CreateSeriesBody = zod.object({
   "year": zod.number(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']).optional(),
   "featured": zod.boolean().optional(),
+  "comingSoon": zod.boolean().optional(),
   "seasons": zod.array(zod.object({
   "seasonNumber": zod.number(),
   "episodes": zod.array(zod.object({
@@ -344,6 +346,7 @@ export const CreateSeriesResponse = zod.object({
   "year": zod.number(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
@@ -363,6 +366,42 @@ export const CreateSeriesResponse = zod.object({
 
 
 /**
+ * @summary Get coming-soon series
+ */
+export const ListComingSoonSeriesResponseItem = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
+  "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
+  "totalSeasons": zod.number(),
+  "totalEpisodes": zod.number(),
+  "pricePerSeason": zod.number(),
+  "pricePerEpisode": zod.number(),
+  "seasons": zod.array(zod.object({
+  "seasonNumber": zod.number(),
+  "episodes": zod.array(zod.object({
+  "episodeNumber": zod.number(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "telegramFileId": zod.string().nullish(),
+  "subtitleUrl": zod.string().nullish()
+}))
+})),
+  "createdAt": zod.string()
+})
+export const ListComingSoonSeriesResponse = zod.array(ListComingSoonSeriesResponseItem)
+
+
+/**
  * @summary Get featured series
  */
 export const ListFeaturedSeriesResponseItem = zod.object({
@@ -378,6 +417,7 @@ export const ListFeaturedSeriesResponseItem = zod.object({
   "year": zod.number(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
@@ -424,6 +464,7 @@ export const GetSeriesResponse = zod.object({
   "year": zod.number(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
@@ -461,6 +502,7 @@ export const UpdateSeriesBody = zod.object({
   "year": zod.number(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']).optional(),
   "featured": zod.boolean().optional(),
+  "comingSoon": zod.boolean().optional(),
   "seasons": zod.array(zod.object({
   "seasonNumber": zod.number(),
   "episodes": zod.array(zod.object({
@@ -488,6 +530,7 @@ export const UpdateSeriesResponse = zod.object({
   "year": zod.number(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "totalSeasons": zod.number(),
   "totalEpisodes": zod.number(),
   "pricePerSeason": zod.number(),
