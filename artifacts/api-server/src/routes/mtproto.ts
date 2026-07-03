@@ -326,7 +326,9 @@ const chunkUpload = multer({
       cb(null, dir);
     },
     filename: (req, _file, cb) => {
-      const idx = String(Number(req.body.chunkIndex) || 0).padStart(8, "0");
+      // Read chunkIndex from URL params (always available, unlike req.body which
+      // may not be parsed yet when this callback fires for the file field)
+      const idx = String(Number(req.params.chunkIndex) || 0).padStart(8, "0");
       cb(null, `chunk_${idx}`);
     },
   }),
@@ -356,10 +358,10 @@ async function assembleChunks(uploadId: string, totalChunks: number, ext: string
   return outputPath;
 }
 
-// ── POST /admin/mtproto/chunks/:uploadId ──────────────────────────────────────
-router.post("/chunks/:uploadId", chunkUpload.single("chunk"), (req, res) => {
+// ── POST /admin/mtproto/chunks/:uploadId/:chunkIndex ──────────────────────────
+router.post("/chunks/:uploadId/:chunkIndex", chunkUpload.single("chunk"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No chunk received" });
-  return res.json({ received: true, chunkIndex: req.body.chunkIndex });
+  return res.json({ received: true, chunkIndex: req.params.chunkIndex });
 });
 
 // ── POST /admin/mtproto/movies/:id/upload-chunked ─────────────────────────────

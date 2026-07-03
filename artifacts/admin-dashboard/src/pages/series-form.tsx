@@ -263,8 +263,6 @@ export function SeriesForm() {
 
         const formData = new FormData();
         formData.append("chunk", chunk);
-        formData.append("chunkIndex", String(i));
-        formData.append("totalChunks", String(totalChunks));
 
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -284,7 +282,7 @@ export function SeriesForm() {
             }
           });
           xhr.addEventListener("error", () => reject(new Error("Network error")));
-          xhr.open("POST", `/api/admin/mtproto/chunks/${uploadId}`);
+          xhr.open("POST", `/api/admin/mtproto/chunks/${uploadId}/${i}`);
           xhr.send(formData);
         });
       }
