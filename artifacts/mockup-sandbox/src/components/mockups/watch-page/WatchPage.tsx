@@ -70,7 +70,7 @@ function VideoPlayer() {
   const [subtitles, setSubtitles] = useState("Off");
   const [autoplayNext, setAutoplayNext] = useState(true);
   const [skipIntro, setSkipIntro] = useState(false);
-  const hideTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const currentTime = Math.floor((progress / 100) * duration);
