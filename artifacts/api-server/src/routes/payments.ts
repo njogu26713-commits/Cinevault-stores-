@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Order } from "../models/Order";
 import { Movie } from "../models/Movie";
+import { Series } from "../models/Series";
 import { deliverMovieFromChannel } from "../services/telegram";
 import { queryStkStatus } from "../services/mpesa";
 import { GetMpesaStatusParams } from "@workspace/api-zod";
@@ -83,36 +84,68 @@ router.post("/mpesa/callback", async (req, res) => {
         return res.json({ ResultCode: 0, ResultDesc: "Accepted" });
       }
 
-      req.log.info({ orderId: order._id, receiptNumber }, "Payment confirmed, delivering movie");
+      req.log.info({ orderId: order._id, receiptNumber }, "Payment confirmed, delivering content");
 
-      // Deliver movie via Telegram
-      try {
-        const movie = await Movie.findById(order.movieId).lean();
-        if (!movie?.telegramFileId) {
-          throw new Error("Movie has no Telegram file ID configured");
-        }
-
-        await Order.findByIdAndUpdate(order._id, { status: "delivering" });
-
-        await deliverMovieFromChannel({
-          telegramUsername: order.telegramUsername,
-          telegramFileId: movie.telegramFileId,
-          movieTitle: order.movieTitle,
-          orderId: order._id.toString(),
-        });
-
+      // Streaming purchases unlock in-app playback only — no Telegram file delivery needed
+      if (order.purchaseType === "stream") {
         await Order.findByIdAndUpdate(order._id, {
           status: "delivered",
           deliveredAt: new Date(),
         });
+        req.log.info({ orderId: order._id }, "Stream purchase confirmed — no Telegram delivery needed");
+      } else {
+        // "buy" purchase — deliver file via Telegram
+        try {
+          let telegramFileId: string | null = null;
 
-        req.log.info({ orderId: order._id }, "Movie delivered successfully");
-      } catch (deliveryErr) {
-        req.log.error({ deliveryErr, orderId: order._id }, "Movie delivery failed");
-        await Order.findByIdAndUpdate(order._id, {
-          status: "failed",
-          failureReason: "Payment received but movie delivery failed. Contact support.",
-        });
+          if (order.contentType === "series") {
+            const series = await Series.findById(order.movieId).lean();
+            if (!series) throw new Error("Series not found for order");
+
+            const season = series.seasons.find((s) => s.seasonNumber === order.seasonNumber);
+            if (!season) throw new Error(`Season ${order.seasonNumber} not found in series`);
+
+            if (order.episodeNumber) {
+              // Single episode purchase
+              const episode = season.episodes.find((e) => e.episodeNumber === order.episodeNumber);
+              if (!episode) throw new Error(`Episode ${order.episodeNumber} not found in season ${order.seasonNumber}`);
+              telegramFileId = episode.telegramFileId ?? null;
+            } else {
+              // Full season purchase — deliver first episode as starting point
+              telegramFileId = season.episodes[0]?.telegramFileId ?? null;
+            }
+          } else {
+            const movie = await Movie.findById(order.movieId).lean();
+            if (!movie) throw new Error("Movie not found for order");
+            telegramFileId = movie.telegramFileId ?? null;
+          }
+
+          if (!telegramFileId) {
+            throw new Error("No Telegram file ID configured for this content");
+          }
+
+          await Order.findByIdAndUpdate(order._id, { status: "delivering" });
+
+          await deliverMovieFromChannel({
+            telegramUsername: order.telegramUsername,
+            telegramFileId,
+            movieTitle: order.movieTitle,
+            orderId: order._id.toString(),
+          });
+
+          await Order.findByIdAndUpdate(order._id, {
+            status: "delivered",
+            deliveredAt: new Date(),
+          });
+
+          req.log.info({ orderId: order._id }, "Content delivered successfully via Telegram");
+        } catch (deliveryErr) {
+          req.log.error({ deliveryErr, orderId: order._id }, "Content delivery failed");
+          await Order.findByIdAndUpdate(order._id, {
+            status: "failed",
+            failureReason: "Payment received but delivery failed. Please contact support.",
+          });
+        }
       }
     } else {
       // Payment failed — only update if not already in a terminal state
