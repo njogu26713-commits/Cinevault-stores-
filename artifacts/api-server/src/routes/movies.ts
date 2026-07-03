@@ -58,6 +58,19 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /movies/coming-soon
+router.get("/coming-soon", async (req, res) => {
+  try {
+    const movies = await Movie.find({ comingSoon: true }).sort({ year: -1, createdAt: -1 }).lean();
+    return res.json(
+      movies.map((m) => ({ ...m, id: m._id.toString(), _id: undefined }))
+    );
+  } catch (err) {
+    req.log.error({ err }, "Failed to list coming-soon movies");
+    return res.status(500).json({ error: "Failed to list coming-soon movies" });
+  }
+});
+
 // GET /movies/featured
 router.get("/featured", async (req, res) => {
   try {

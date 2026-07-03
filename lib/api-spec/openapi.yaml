@@ -86,6 +86,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/Movie"
 
+  /movies/coming-soon:
+    get:
+      operationId: listComingSoonMovies
+      tags: [movies]
+      summary: Get coming-soon movies
+      responses:
+        "200":
+          description: Coming soon movies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Movie"
+
   /movies/featured:
     get:
       operationId: listFeaturedMovies
@@ -655,6 +670,8 @@ components:
           type: number
         featured:
           type: boolean
+        comingSoon:
+          type: boolean
         rating:
           type: ["number", "null"]
         year:
@@ -676,6 +693,7 @@ components:
         - fileSize
         - price
         - featured
+        - comingSoon
         - year
         - createdAt
 
@@ -706,6 +724,8 @@ components:
         price:
           type: number
         featured:
+          type: boolean
+        comingSoon:
           type: boolean
         rating:
           type: ["number", "null"]

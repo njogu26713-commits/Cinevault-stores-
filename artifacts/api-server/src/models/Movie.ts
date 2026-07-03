@@ -20,6 +20,7 @@ export interface IMovie extends Document {
   subtitleVtt?: string | null;
   subtitleStatus?: "generating" | "ready" | "error" | null;
   published?: boolean;
+  comingSoon?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,6 +46,7 @@ const MovieSchema = new Schema<IMovie>(
     subtitleVtt: { type: String, default: null },
     subtitleStatus: { type: String, enum: ["generating", "ready", "error"], default: null },
     published: { type: Boolean, default: false },
+    comingSoon: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

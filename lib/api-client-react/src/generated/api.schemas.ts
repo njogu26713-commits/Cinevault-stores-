@@ -33,6 +33,7 @@ export interface Movie {
   fileSize: string;
   price: number;
   featured: boolean;
+  comingSoon: boolean;
   /** @nullable */
   rating?: number | null;
   year: number;
@@ -66,6 +67,7 @@ export interface MovieInput {
   fileSize: string;
   price: number;
   featured?: boolean;
+  comingSoon?: boolean;
   /** @nullable */
   rating?: number | null;
   year: number;

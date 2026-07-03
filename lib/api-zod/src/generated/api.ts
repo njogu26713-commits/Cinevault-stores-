@@ -41,6 +41,7 @@ export const ListMoviesResponse = zod.object({
   "fileSize": zod.string(),
   "price": zod.number(),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
@@ -68,6 +69,7 @@ export const CreateMovieBody = zod.object({
   "fileSize": zod.string(),
   "price": zod.number(),
   "featured": zod.boolean().optional(),
+  "comingSoon": zod.boolean().optional(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
@@ -87,12 +89,39 @@ export const CreateMovieResponse = zod.object({
   "fileSize": zod.string(),
   "price": zod.number(),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
   "subtitleUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary Get coming-soon movies
+ */
+export const ListComingSoonMoviesResponseItem = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "posterUrl": zod.string(),
+  "bannerUrl": zod.string().nullish(),
+  "youtubeTrailerId": zod.string().nullish(),
+  "genre": zod.array(zod.string()),
+  "duration": zod.string(),
+  "quality": zod.enum(['720p', '1080p', '4K']),
+  "fileSize": zod.string(),
+  "price": zod.number(),
+  "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
+  "rating": zod.number().nullish(),
+  "year": zod.number(),
+  "telegramFileId": zod.string().nullish(),
+  "subtitleUrl": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListComingSoonMoviesResponse = zod.array(ListComingSoonMoviesResponseItem)
 
 
 /**
@@ -111,6 +140,7 @@ export const ListFeaturedMoviesResponseItem = zod.object({
   "fileSize": zod.string(),
   "price": zod.number(),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
@@ -157,6 +187,7 @@ export const GetMovieResponse = zod.object({
   "fileSize": zod.string(),
   "price": zod.number(),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
@@ -184,6 +215,7 @@ export const UpdateMovieBody = zod.object({
   "fileSize": zod.string(),
   "price": zod.number(),
   "featured": zod.boolean().optional(),
+  "comingSoon": zod.boolean().optional(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),
@@ -203,6 +235,7 @@ export const UpdateMovieResponse = zod.object({
   "fileSize": zod.string(),
   "price": zod.number(),
   "featured": zod.boolean(),
+  "comingSoon": zod.boolean(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
   "telegramFileId": zod.string().nullish(),

@@ -309,6 +309,83 @@ export const useCreateMovie = <TError = ErrorType<unknown>,
       return useMutation(getCreateMovieMutationOptions(options));
     }
 
+export const getListComingSoonMoviesUrl = () => {
+
+
+
+
+  return `/api/movies/coming-soon`
+}
+
+/**
+ * @summary Get coming-soon movies
+ */
+export const listComingSoonMovies = async ( options?: RequestInit): Promise<Movie[]> => {
+
+  return customFetch<Movie[]>(getListComingSoonMoviesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListComingSoonMoviesQueryKey = () => {
+    return [
+    `/api/movies/coming-soon`
+    ] as const;
+    }
+
+
+export const getListComingSoonMoviesQueryOptions = <TData = Awaited<ReturnType<typeof listComingSoonMovies>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listComingSoonMovies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListComingSoonMoviesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listComingSoonMovies>>> = ({ signal }) => listComingSoonMovies({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listComingSoonMovies>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListComingSoonMoviesQueryResult = NonNullable<Awaited<ReturnType<typeof listComingSoonMovies>>>
+export type ListComingSoonMoviesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get coming-soon movies
+ */
+
+export function useListComingSoonMovies<TData = Awaited<ReturnType<typeof listComingSoonMovies>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listComingSoonMovies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListComingSoonMoviesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListFeaturedMoviesUrl = () => {
 
 

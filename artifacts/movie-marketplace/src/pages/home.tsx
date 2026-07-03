@@ -3,13 +3,14 @@ import { Link } from "wouter";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Film, PlayCircle, Loader2, ChevronLeft, ChevronRight,
-  Star, Download, Sparkles, Search, X, Flame, Clock3,
+  Star, Download, Sparkles, Search, X, Flame, Clock3, Clock,
 } from "lucide-react";
 import {
   useListMovies,
   useListFeaturedMovies,
   useListGenres,
   useGetMovieStats,
+  useListComingSoonMovies,
   getListMoviesQueryKey,
   type Movie,
 } from "@workspace/api-client-react";
@@ -115,6 +116,128 @@ function MovieRow({
   );
 }
 
+// ── Coming Soon card ──────────────────────────────────────────────────────────
+
+function ComingSoonCard({ movie, index = 0 }: { movie: Movie; index?: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index * 0.05, 0.4), duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ scale: 1.04, zIndex: 10 }}
+      className="group relative flex-shrink-0"
+      style={{ transformOrigin: "center bottom" }}
+    >
+      <div className="block">
+        <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-white/5 shadow-lg">
+          {/* Blurred/dimmed poster */}
+          <img
+            src={movie.posterUrl}
+            alt={movie.title}
+            className="w-full h-full object-cover scale-105 blur-[2px] brightness-40"
+            loading="lazy"
+          />
+
+          {/* Coming soon overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30">
+            <div className="flex items-center gap-1.5 bg-purple-500/25 border border-purple-500/50 text-purple-300 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm">
+              <Clock size={11} />
+              COMING SOON
+            </div>
+            <span className="text-white/50 text-xs font-medium">{movie.year}</span>
+          </div>
+
+          {/* Quality badge */}
+          <div className="absolute top-2 left-2 z-10">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider bg-purple-500/20 text-purple-400 border-purple-500/30">
+              {movie.quality}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-2.5 px-0.5">
+          <h3 className="font-bold text-white/60 text-sm leading-snug line-clamp-1">
+            {movie.title}
+          </h3>
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-xs text-white/30">{movie.genre[0]}</span>
+            <span className="text-xs font-bold text-purple-400/70">Soon</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Coming Soon row ───────────────────────────────────────────────────────────
+
+function ComingSoonRow({ movies }: { movies: Movie[] }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(sectionRef, { once: true, margin: "-80px" });
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(true);
+
+  const checkScroll = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 8);
+    setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+  }, []);
+
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    return () => el.removeEventListener("scroll", checkScroll);
+  }, [checkScroll, movies]);
+
+  const scroll = (dir: "left" | "right") => {
+    rowRef.current?.scrollBy({ left: dir === "right" ? 600 : -600, behavior: "smooth" });
+  };
+
+  if (!movies.length) return null;
+
+  return (
+    <motion.section
+      ref={sectionRef}
+      initial={{ opacity: 0, y: 36 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      className="mb-10"
+    >
+      <div className="flex items-center justify-between px-8 mb-4">
+        <div className="flex items-center gap-2.5">
+          <span className="text-purple-400"><Clock size={18} /></span>
+          <h2 className="text-lg font-black text-white tracking-tight">Coming Soon</h2>
+          <span className="text-xs text-white/25 font-medium mt-0.5">{movies.length} titles</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => scroll("left")} disabled={!canLeft} className="w-8 h-8 rounded-full border border-white/12 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 hover:bg-white/8 transition-all disabled:opacity-20 disabled:cursor-not-allowed">
+            <ChevronLeft size={16} />
+          </button>
+          <button onClick={() => scroll("right")} disabled={!canRight} className="w-8 h-8 rounded-full border border-white/12 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 hover:bg-white/8 transition-all disabled:opacity-20 disabled:cursor-not-allowed">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className={`absolute left-0 top-0 bottom-6 w-16 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none transition-opacity duration-200 ${canLeft ? "opacity-100" : "opacity-0"}`} />
+        <div className={`absolute right-0 top-0 bottom-6 w-16 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none transition-opacity duration-200 ${canRight ? "opacity-100" : "opacity-0"}`} />
+        <div ref={rowRef} className="flex gap-4 overflow-x-auto scrollbar-hide px-8 pb-2" style={{ scrollSnapType: "x mandatory" }}>
+          {movies.map((movie, i) => (
+            <div key={movie.id} className="w-[160px] sm:w-[180px] md:w-[200px]" style={{ scrollSnapAlign: "start", flexShrink: 0 }}>
+              <ComingSoonCard movie={movie} index={i} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -132,6 +255,7 @@ export default function Home() {
   const { data: featuredMovies, isLoading: loadingFeatured } = useListFeaturedMovies();
   const { data: genres } = useListGenres();
   const { data: stats } = useGetMovieStats();
+  const { data: comingSoonMovies } = useListComingSoonMovies();
 
   // Fetch all movies for row grouping
   const { data: allMoviesRes, isLoading: loadingAll } = useListMovies(
@@ -437,6 +561,10 @@ export default function Home() {
       ) : (
         /* Horizontal rows (default browse) */
         <div className="py-6">
+          {comingSoonMovies && comingSoonMovies.length > 0 && (
+            <ComingSoonRow movies={comingSoonMovies} />
+          )}
+
           {recentlyAdded.length > 0 && (
             <MovieRow
               title="Recently Added"

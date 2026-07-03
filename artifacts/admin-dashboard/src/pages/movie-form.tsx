@@ -32,6 +32,7 @@ const formSchema = z.object({
   youtubeTrailerId: z.string().optional().or(z.literal("")),
   subtitleUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   featured: z.boolean().default(false),
+  comingSoon: z.boolean().default(false),
   rating: z.coerce.number().min(0).max(10).optional().or(z.literal(0)),
 });
 
@@ -69,6 +70,7 @@ export function MovieForm() {
       youtubeTrailerId: "",
       subtitleUrl: "",
       featured: false,
+      comingSoon: false,
       rating: 0,
     },
   });
@@ -90,6 +92,7 @@ export function MovieForm() {
         youtubeTrailerId: movie.youtubeTrailerId || "",
         subtitleUrl: (movie as any).subtitleUrl || "",
         featured: movie.featured,
+        comingSoon: (movie as any).comingSoon || false,
         rating: movie.rating || 0,
       });
     }
@@ -161,6 +164,7 @@ export function MovieForm() {
       youtubeTrailerId: ytId || null,
       subtitleUrl: values.subtitleUrl || null,
       featured: values.featured,
+      comingSoon: values.comingSoon,
       rating: values.rating || null,
     };
 
@@ -606,6 +610,21 @@ export function MovieForm() {
                       <div className="space-y-0.5">
                         <FormLabel className="text-base">Featured Movie</FormLabel>
                         <FormDescription>Display in hero section</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="comingSoon"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 mt-3">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Coming Soon</FormLabel>
+                        <FormDescription>Show in Coming Soon row — not yet available for purchase</FormDescription>
                       </div>
                       <FormControl>
                         <Switch checked={field.value} onCheckedChange={field.onChange} />
