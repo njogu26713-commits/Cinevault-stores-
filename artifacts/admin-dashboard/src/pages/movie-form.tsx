@@ -210,12 +210,13 @@ export function MovieForm() {
     });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const CHUNK_SIZE = 50 * 1024 * 1024; // 50 MB per chunk
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !id) return;
     e.target.value = "";
 
-    // Close any existing SSE connection
     sseRef.current?.close();
     sseRef.current = null;
 
@@ -225,99 +226,109 @@ export function MovieForm() {
     setUploadSpeed(0);
     setUploadFileSizeMB((file.size / 1024 / 1024).toFixed(1));
 
-    const formData = new FormData();
-    formData.append("file", file);
+    const uploadId = crypto.randomUUID();
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-    const xhr = new XMLHttpRequest();
+    try {
+      // Phase 1: send file in 50 MB chunks — each request finishes in seconds
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const chunk = file.slice(start, start + CHUNK_SIZE);
 
-    // Phase 1: client → server progress
-    xhr.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        setUploadProgress(Math.round((event.loaded / event.total) * 100));
+        const formData = new FormData();
+        formData.append("chunk", chunk);
+        formData.append("chunkIndex", String(i));
+        formData.append("totalChunks", String(totalChunks));
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.addEventListener("progress", (event) => {
+            if (event.lengthComputable) {
+              const overall = Math.round(((i + event.loaded / event.total) / totalChunks) * 100);
+              setUploadProgress(overall);
+            }
+          });
+          xhr.addEventListener("load", () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
+              resolve();
+            } else {
+              try { reject(new Error(JSON.parse(xhr.responseText).error || "Chunk upload failed")); }
+              catch { reject(new Error("Chunk upload failed")); }
+            }
+          });
+          xhr.addEventListener("error", () => reject(new Error("Network error")));
+          xhr.open("POST", `/api/admin/mtproto/chunks/${uploadId}`);
+          xhr.send(formData);
+        });
       }
-    });
 
-    xhr.addEventListener("load", () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
+      // Phase 2: tell server to assemble chunks and start Telegram upload
+      setUploadPhase("to_telegram");
+      setUploadProgress(0);
+
+      const finalizeRes = await fetch(`/api/admin/mtproto/movies/${id}/upload-chunked`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploadId, totalChunks, filename: file.name, mimeType: file.type || "video/mp4" }),
+      });
+
+      if (!finalizeRes.ok) {
+        const err = await finalizeRes.json().catch(() => ({}));
+        throw new Error((err as any).error || "Finalize failed");
+      }
+
+      const { jobId } = await finalizeRes.json();
+
+      // SSE for Telegram upload progress (same as before)
+      const sse = new EventSource(`/api/admin/mtproto/upload-progress/${jobId}`);
+      sseRef.current = sse;
+
+      sse.onmessage = (evt) => {
         try {
-          const { jobId } = JSON.parse(xhr.responseText);
-
-          // Phase 2: server → Telegram progress via SSE
-          setUploadPhase("to_telegram");
-          setUploadProgress(0);
-
-          const sse = new EventSource(`/api/admin/mtproto/upload-progress/${jobId}`);
-          sseRef.current = sse;
-
-          sse.onmessage = (evt) => {
-            try {
-              const progress = JSON.parse(evt.data) as {
-                phase: string; percent?: number; speedMBps?: number;
-                fileSizeMB?: string; fileId?: string; error?: string;
-              };
-
-              if (progress.phase === "uploading_to_telegram") {
-                setUploadProgress(progress.percent ?? 0);
-                setUploadSpeed(progress.speedMBps ?? 0);
-                if (progress.fileSizeMB) setUploadFileSizeMB(progress.fileSizeMB);
-              } else if (progress.phase === "complete") {
-                setUploadPhase("complete");
-                setUploadProgress(100);
-                setTelegramFileId(progress.fileId || "");
-                toast({ title: "Uploaded to Telegram successfully!" });
-                queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(id) });
-                sse.close();
-                sseRef.current = null;
-              } else if (progress.phase === "error") {
-                setUploadPhase("error");
-                const rawErr = progress.error ?? "Upload failed";
-                const isSessionExpired = rawErr.includes("SESSION_EXPIRED");
-                const displayErr = isSessionExpired
-                  ? "Telegram session expired — reconnect in Settings → Telegram Connect"
-                  : rawErr;
-                setUploadError(displayErr);
-                toast({
-                  title: isSessionExpired ? "Telegram session expired" : "Upload failed",
-                  description: isSessionExpired ? "Go to Settings → Telegram Connect and sign in again." : rawErr,
-                  variant: "destructive",
-                });
-                sse.close();
-                sseRef.current = null;
-              }
-            } catch {}
+          const progress = JSON.parse(evt.data) as {
+            phase: string; percent?: number; speedMBps?: number;
+            fileSizeMB?: string; fileId?: string; error?: string;
           };
-
-          sse.onerror = () => {
-            setUploadPhase("error");
-            setUploadError("Lost connection to server");
+          if (progress.phase === "uploading_to_telegram") {
+            setUploadProgress(progress.percent ?? 0);
+            setUploadSpeed(progress.speedMBps ?? 0);
+            if (progress.fileSizeMB) setUploadFileSizeMB(progress.fileSizeMB);
+          } else if (progress.phase === "complete") {
+            setUploadPhase("complete");
+            setUploadProgress(100);
+            setTelegramFileId(progress.fileId || "");
+            toast({ title: "Uploaded to Telegram successfully!" });
+            queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(id) });
             sse.close();
             sseRef.current = null;
-          };
-        } catch {
-          setUploadPhase("error");
-          setUploadError("Bad response from server");
-          toast({ title: "Upload failed — bad response", variant: "destructive" });
-        }
-      } else {
-        let errorMsg = "Upload failed";
-        try {
-          const errData = JSON.parse(xhr.responseText);
-          if (errData.error) errorMsg = errData.error;
+          } else if (progress.phase === "error") {
+            setUploadPhase("error");
+            const rawErr = progress.error ?? "Upload failed";
+            const isSessionExpired = rawErr.includes("SESSION_EXPIRED");
+            setUploadError(isSessionExpired ? "Telegram session expired — reconnect in Settings → Telegram Connect" : rawErr);
+            toast({
+              title: isSessionExpired ? "Telegram session expired" : "Upload failed",
+              description: isSessionExpired ? "Go to Settings → Telegram Connect and sign in again." : rawErr,
+              variant: "destructive",
+            });
+            sse.close();
+            sseRef.current = null;
+          }
         } catch {}
+      };
+
+      sse.onerror = () => {
         setUploadPhase("error");
-        setUploadError(errorMsg);
-        toast({ title: errorMsg, variant: "destructive" });
-      }
-    });
-
-    xhr.addEventListener("error", () => {
+        setUploadError("Lost connection to server");
+        sse.close();
+        sseRef.current = null;
+      };
+    } catch (err: any) {
       setUploadPhase("error");
-      setUploadError("Network error");
-      toast({ title: "Upload failed — network error", variant: "destructive" });
-    });
-
-    xhr.open("POST", `/api/admin/mtproto/movies/${id}/upload`);
-    xhr.send(formData);
+      setUploadError(err.message || "Upload failed");
+      toast({ title: err.message || "Upload failed", variant: "destructive" });
+    }
   };
 
   if (isEditing && isMovieLoading) {

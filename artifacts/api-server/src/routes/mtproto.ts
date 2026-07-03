@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import os from "os";
 import fs from "fs";
+import path from "path";
 import mongoose from "mongoose";
 import { Movie } from "../models/Movie";
 import { Series } from "../models/Series";
@@ -314,6 +315,183 @@ router.post(
     }
   }
 );
+
+// ── Chunk upload helpers ──────────────────────────────────────────────────────
+
+const chunkUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => {
+      const dir = path.join(os.tmpdir(), `cv_chunks_${req.params.uploadId}`);
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, _file, cb) => {
+      const idx = String(Number(req.body.chunkIndex) || 0).padStart(8, "0");
+      cb(null, `chunk_${idx}`);
+    },
+  }),
+  limits: { fileSize: 60 * 1024 * 1024 }, // 60 MB per chunk max
+});
+
+async function assembleChunks(uploadId: string, totalChunks: number, ext: string): Promise<string> {
+  const chunkDir = path.join(os.tmpdir(), `cv_chunks_${uploadId}`);
+  const outputPath = path.join(os.tmpdir(), `cv_assembled_${uploadId}${ext}`);
+  const writeStream = fs.createWriteStream(outputPath);
+
+  for (let i = 0; i < totalChunks; i++) {
+    const chunkPath = path.join(chunkDir, `chunk_${String(i).padStart(8, "0")}`);
+    await new Promise<void>((resolve, reject) => {
+      const readStream = fs.createReadStream(chunkPath);
+      readStream.on("error", reject);
+      readStream.on("end", resolve);
+      readStream.pipe(writeStream, { end: false });
+    });
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    writeStream.end((err?: Error | null) => (err ? reject(err) : resolve()));
+  });
+
+  try { fs.rmSync(chunkDir, { recursive: true, force: true }); } catch {}
+  return outputPath;
+}
+
+// ── POST /admin/mtproto/chunks/:uploadId ──────────────────────────────────────
+router.post("/chunks/:uploadId", chunkUpload.single("chunk"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No chunk received" });
+  return res.json({ received: true, chunkIndex: req.body.chunkIndex });
+});
+
+// ── POST /admin/mtproto/movies/:id/upload-chunked ─────────────────────────────
+router.post("/movies/:id/upload-chunked", async (req, res) => {
+  const { id } = req.params;
+  const { uploadId, totalChunks, filename, mimeType } = req.body as {
+    uploadId: string; totalChunks: number; filename: string; mimeType: string;
+  };
+
+  if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "Invalid movie ID" });
+  if (!uploadId || !totalChunks) return res.status(400).json({ error: "uploadId and totalChunks required" });
+
+  const channelId = getSetting("telegramChannelId") || process.env["TELEGRAM_CHANNEL_ID"] || "";
+  if (!channelId) return res.status(400).json({ error: "Telegram channel ID not configured" });
+
+  const movie = await Movie.findById(id);
+  if (!movie) return res.status(404).json({ error: "Movie not found" });
+
+  const status = getStatus();
+  if (status.state !== "connected") {
+    const msg = status.state === "disconnected" || status.state === "error"
+      ? "Telegram not connected — go to Settings → Telegram Connect and sign in first"
+      : "Telegram session is still authenticating — try again in a moment";
+    return res.status(400).json({ error: msg });
+  }
+
+  const ext = filename?.includes(".") ? "." + filename.split(".").pop()!.toLowerCase() : ".mp4";
+  let assembledPath: string;
+  try {
+    assembledPath = await assembleChunks(uploadId, Number(totalChunks), ext);
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to assemble chunks: " + err.message });
+  }
+
+  const jobId = createUploadJob();
+  const caption = `🎬 ${movie.title} (${movie.year}) | ${movie.quality}`;
+  res.json({ jobId });
+
+  setImmediate(async () => {
+    try {
+      const { fileId, messageId, fileSizeMB } = await uploadFileToChannel(
+        jobId, assembledPath, filename || `${movie.title}.mp4`, caption, channelId, mimeType || "video/mp4"
+      );
+      let botFileId = fileId;
+      if (!botFileId) { try { botFileId = await getBotFileId(messageId); } catch {} }
+      await Movie.findByIdAndUpdate(id, {
+        telegramFileId: botFileId || null,
+        telegramMessageId: messageId,
+        fileSize: `${fileSizeMB} MB`,
+        published: true,
+      });
+      logger.info({ movieId: id, messageId, botFileId }, "Movie chunked upload complete");
+    } catch (err: any) {
+      emitUploadError(jobId, err?.message ?? "Upload failed");
+      logger.error({ err, movieId: id, jobId }, "Movie chunked upload background job failed");
+    } finally {
+      try { fs.unlink(assembledPath, () => {}); } catch {}
+    }
+  });
+  return;
+});
+
+// ── POST /admin/mtproto/series/:id/seasons/:sIdx/episodes/:eIdx/upload-chunked ─
+router.post("/series/:id/seasons/:sIdx/episodes/:eIdx/upload-chunked", async (req, res) => {
+  const { id, sIdx, eIdx } = req.params;
+  const seasonIdx = Number(sIdx);
+  const episodeIdx = Number(eIdx);
+  const { uploadId, totalChunks, filename, mimeType } = req.body as {
+    uploadId: string; totalChunks: number; filename: string; mimeType: string;
+  };
+
+  if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "Invalid series ID" });
+  if (!uploadId || !totalChunks) return res.status(400).json({ error: "uploadId and totalChunks required" });
+
+  const channelId = getSetting("telegramChannelId") || process.env["TELEGRAM_CHANNEL_ID"] || "";
+  if (!channelId) return res.status(400).json({ error: "Telegram channel ID not configured" });
+
+  const series = await Series.findById(id);
+  if (!series) return res.status(404).json({ error: "Series not found" });
+
+  const season = series.seasons[seasonIdx];
+  if (!season) return res.status(404).json({ error: "Season not found" });
+
+  const episode = season.episodes[episodeIdx];
+  if (!episode) return res.status(404).json({ error: "Episode not found" });
+
+  const status = getStatus();
+  if (status.state !== "connected") {
+    const msg = status.state === "disconnected" || status.state === "error"
+      ? "Telegram not connected — go to Settings → Telegram Connect and sign in first"
+      : "Telegram session is still authenticating — try again in a moment";
+    return res.status(400).json({ error: msg });
+  }
+
+  const ext = filename?.includes(".") ? "." + filename.split(".").pop()!.toLowerCase() : ".mp4";
+  let assembledPath: string;
+  try {
+    assembledPath = await assembleChunks(uploadId, Number(totalChunks), ext);
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to assemble chunks: " + err.message });
+  }
+
+  const jobId = createUploadJob();
+  const sNum = String(season.seasonNumber).padStart(2, "0");
+  const eNum = String(episode.episodeNumber).padStart(2, "0");
+  const caption = `📺 ${series.title} | S${sNum}E${eNum} - ${episode.title}`;
+  res.json({ jobId });
+
+  setImmediate(async () => {
+    try {
+      const { fileId, messageId, fileSizeMB } = await uploadFileToChannel(
+        jobId, assembledPath, filename || `${series.title}_S${sNum}E${eNum}.mp4`, caption, channelId, mimeType || "video/mp4"
+      );
+      let botFileId = fileId;
+      if (!botFileId) { try { botFileId = await getBotFileId(messageId); } catch {} }
+
+      const fresh = await Series.findById(id);
+      if (fresh && fresh.seasons[seasonIdx]?.episodes[episodeIdx]) {
+        fresh.seasons[seasonIdx].episodes[episodeIdx].telegramFileId = botFileId || null;
+        fresh.seasons[seasonIdx].episodes[episodeIdx].telegramMessageId = messageId;
+        await fresh.save();
+      }
+      logger.info({ seriesId: id, seasonIdx, episodeIdx, messageId, botFileId }, "Episode chunked upload complete");
+    } catch (err: any) {
+      emitUploadError(jobId, err?.message ?? "Upload failed");
+      logger.error({ err, seriesId: id, jobId }, "Episode chunked upload background job failed");
+    } finally {
+      try { fs.unlink(assembledPath, () => {}); } catch {}
+    }
+  });
+  return;
+});
 
 // ── GET /admin/mtproto/upload-progress/:jobId (SSE) ───────────────────────────
 router.get("/upload-progress/:jobId", (req, res) => {
