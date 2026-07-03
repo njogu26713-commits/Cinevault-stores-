@@ -6,9 +6,12 @@ cmds = ["npm install -g pnpm@10.26.1"]
 cmds = ["pnpm install --no-frozen-lockfile"]
 
 [phases.build]
+# Each app reads its own dedicated base-path env var (MARKETPLACE_BASE_PATH /
+# ADMIN_BASE_PATH) with the correct default baked in, so a shared/global
+# `BASE_PATH` variable set on the platform can never leak between builds.
 cmds = [
-  "PORT=5000 BASE_PATH=/ pnpm --filter @workspace/movie-marketplace run build",
-  "BASE_PATH=/admin/ pnpm --filter @workspace/admin-dashboard run build",
+  "pnpm --filter @workspace/movie-marketplace run build",
+  "pnpm --filter @workspace/admin-dashboard run build",
   "pnpm --filter @workspace/api-server run build"
 ]
 

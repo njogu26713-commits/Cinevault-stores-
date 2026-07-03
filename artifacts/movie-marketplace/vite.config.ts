@@ -6,7 +6,11 @@ import { defineConfig } from 'vite';
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
 const port = Number(process.env.PORT ?? "5000");
-const basePath = process.env.BASE_PATH ?? "/";
+// Dedicated env var (never the shared `BASE_PATH`) so a global `BASE_PATH`
+// set for the admin dashboard on a host like Railway can never leak into
+// this app's build and break its asset paths. Defaults to "/" since this
+// app is always served from the site root.
+const basePath = process.env.MARKETPLACE_BASE_PATH ?? "/";
 
 export default defineConfig({
   base: basePath,

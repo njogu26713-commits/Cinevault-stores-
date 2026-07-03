@@ -27,6 +27,8 @@ A premium dark Netflix-style movie marketplace where users browse, buy, and rece
 | Key | Value | Purpose |
 |-----|-------|---------|
 | `MPESA_ENV` | `sandbox` or `production` | Switches Daraja API base URL |
+| `MARKETPLACE_BASE_PATH` | e.g. `/` | Optional override for the marketplace's Vite `base` (defaults to `/`) |
+| `ADMIN_BASE_PATH` | e.g. `/admin/` | Optional override for the admin dashboard's Vite `base` (defaults to `/admin/`) |
 
 ## Stack
 

@@ -46,7 +46,7 @@ if (process.env.NODE_ENV === "production") {
       res.sendFile(path.join(adminDist, "index.html"));
     });
   } else {
-    logger.error({ adminDist }, "Admin dashboard dist not found — /admin will return 404. Ensure the build ran with BASE_PATH=/admin/");
+    logger.error({ adminDist }, "Admin dashboard dist not found — /admin will return 404. Ensure the admin-dashboard build ran (ADMIN_BASE_PATH defaults to /admin/).");
   }
 
   const marketplaceDist = path.resolve(__dirname, "../../movie-marketplace/dist/public");

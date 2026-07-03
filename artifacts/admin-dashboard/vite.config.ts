@@ -5,7 +5,10 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const port = Number(process.env.PORT ?? "5000");
-const basePath = process.env.BASE_PATH ?? "/";
+// Dedicated env var (never the shared `BASE_PATH`) so a global `BASE_PATH`
+// meant for another app on a host like Railway can never leak into this
+// build. Defaults to "/admin/" since this app is always served under /admin.
+const basePath = process.env.ADMIN_BASE_PATH ?? "/admin/";
 
 export default defineConfig({
   base: basePath,
