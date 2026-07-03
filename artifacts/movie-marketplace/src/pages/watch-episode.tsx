@@ -116,18 +116,26 @@ function VideoPlayer({ src, poster, subtitleUrl, resumeAt, progressKey: pKey, on
     };
     const onPlay = () => { setPlaying(true); playingRef.current = true; resetHide(); };
     const onPause = () => { setPlaying(false); playingRef.current = false; setShowControls(true); };
-    const onFull = () => setFullscreen(!!document.fullscreenElement);
+    const onFull = () => setFullscreen(
+      !!(document.fullscreenElement || (document as any).webkitFullscreenElement)
+    );
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("durationchange", onDuration);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
     document.addEventListener("fullscreenchange", onFull);
+    document.addEventListener("webkitfullscreenchange", onFull);
+    v.addEventListener("webkitbeginfullscreen", onFull);
+    v.addEventListener("webkitendfullscreen", onFull);
     return () => {
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("durationchange", onDuration);
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
       document.removeEventListener("fullscreenchange", onFull);
+      document.removeEventListener("webkitfullscreenchange", onFull);
+      v.removeEventListener("webkitbeginfullscreen", onFull);
+      v.removeEventListener("webkitendfullscreen", onFull);
       clearTimeout(hideTimeout.current);
     };
   }, [pKey, resumeAt]);
@@ -172,9 +180,19 @@ function VideoPlayer({ src, poster, subtitleUrl, resumeAt, progressKey: pKey, on
   };
 
   const toggleFullscreen = () => {
-    const el = videoRef.current?.parentElement;
-    if (!el) return;
-    document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen();
+    const v = videoRef.current;
+    const el = v?.parentElement;
+    if (!el || !v) return;
+    const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (v as any).webkitDisplayingFullscreen);
+    if (isFs) {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+      else if ((v as any).webkitExitFullscreen) (v as any).webkitExitFullscreen();
+    } else {
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
+      else if ((v as any).webkitEnterFullscreen) (v as any).webkitEnterFullscreen();
+    }
   };
 
   const togglePip = () => {
