@@ -7,7 +7,7 @@ import {
   Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward,
   Settings, PictureInPicture2, Heart, Plus, Share2,
   Flag, Star, Eye, MessageCircle, Check, Clock,
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, RotateCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -81,6 +81,22 @@ function VideoPlayer({ src, poster, subtitleUrl, resumeAt, progressKey: pKey, on
   const setAutoplayNext = (v: boolean) => { setAutoplayNextState(v); savePref("cv_autoplay", v); };
   const setSkipIntro = (v: boolean) => { setSkipIntroState(v); savePref("cv_skipintro", v); };
 
+  const [isLandscapeLocked, setIsLandscapeLocked] = useState(false);
+
+  const toggleOrientation = async () => {
+    try {
+      if (isLandscapeLocked) {
+        screen.orientation.unlock();
+        setIsLandscapeLocked(false);
+      } else {
+        await screen.orientation.lock("landscape");
+        setIsLandscapeLocked(true);
+      }
+    } catch {
+      // Screen Orientation API not supported or permission denied
+    }
+  };
+
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const playingRef = useRef(false);
   const lastSaveRef = useRef(0);
@@ -137,6 +153,8 @@ function VideoPlayer({ src, poster, subtitleUrl, resumeAt, progressKey: pKey, on
       v.removeEventListener("webkitbeginfullscreen", onFull);
       v.removeEventListener("webkitendfullscreen", onFull);
       clearTimeout(hideTimeout.current);
+      // Release orientation lock when player unmounts
+      try { screen.orientation.unlock(); } catch {}
     };
   }, [pKey, resumeAt]);
 
@@ -368,6 +386,14 @@ function VideoPlayer({ src, poster, subtitleUrl, resumeAt, progressKey: pKey, on
 
           <button aria-label="Picture in picture" className="text-white/70 hover:text-white transition-colors p-1" onClick={togglePip}>
             <PictureInPicture2 size={20} />
+          </button>
+          {/* Rotate button — only visible on phone screens */}
+          <button
+            aria-label={isLandscapeLocked ? "Unlock orientation" : "Rotate to landscape"}
+            className={`sm:hidden transition-colors p-1 ${isLandscapeLocked ? "text-primary" : "text-white/70 hover:text-white"}`}
+            onClick={toggleOrientation}
+          >
+            <RotateCw size={20} className={isLandscapeLocked ? "rotate-90" : ""} />
           </button>
           <button aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} className="text-white/70 hover:text-white transition-colors p-1" onClick={toggleFullscreen}>
             {fullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
