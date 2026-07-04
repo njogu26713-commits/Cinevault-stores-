@@ -17,7 +17,7 @@ const router = Router();
 const FREE_EPISODES_PER_SEASON = 2;
 
 /** Seconds of a movie available for free without purchase. */
-const FREE_MOVIE_PREVIEW_SECONDS = 10 * 60; // 10 minutes
+const FREE_MOVIE_PREVIEW_SECONDS = 20 * 60; // 20 minutes
 
 /**
  * Parse a human-readable duration string to total seconds.
