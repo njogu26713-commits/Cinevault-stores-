@@ -5,8 +5,8 @@ import { X, Smartphone, Send, Loader2, Tv, Play, Download } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCreateOrder } from "@workspace/api-client-react";
 import { type Series } from "@workspace/api-client-react";
+import { useCreateOrder } from "../hooks/use-static-api";
 import { formatKes } from "../lib/utils";
 import { StatusBadge } from "./series-card";
 

@@ -27,11 +27,8 @@ export function UserAuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/user/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    // Static mode: no auth server — always signed out
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {

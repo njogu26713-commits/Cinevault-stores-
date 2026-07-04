@@ -1,6 +1,6 @@
 import { useParams, useLocation, Link } from "wouter";
 import { useRef, useState, useEffect, useCallback } from "react";
-import { useGetSeries, getGetSeriesQueryKey, useListSeries } from "@workspace/api-client-react";
+import { useGetSeries, getGetSeriesQueryKey, useListSeries } from "../hooks/use-static-api";
 import { ReviewSection } from "../components/review-section";
 import { SeriesCheckoutModal } from "../components/series-checkout-modal";
 import { type Series } from "@workspace/api-client-react";

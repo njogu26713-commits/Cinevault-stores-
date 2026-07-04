@@ -1,25 +1,27 @@
 import { useParams, Link } from "wouter";
 import { Layout } from "../components/layout";
-import { useGetOrder, getGetOrderQueryKey } from "@workspace/api-client-react";
+import { useGetOrder } from "../hooks/use-static-api";
 import { Loader2, CheckCircle2, AlertCircle, Clock, Send, ShieldCheck, Film } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function OrderStatus() {
   const { id } = useParams<{ id: string }>();
 
-  const { data: order, isLoading } = useGetOrder(id!, {
-    query: {
-      enabled: !!id,
-      refetchInterval: (query) => {
-        const status = query.state.data?.status;
-        if (status === 'delivered' || status === 'failed') return false;
-        return 3000;
-      },
-      queryKey: getGetOrderQueryKey(id!)
-    }
-  });
+  const { data: order, isLoading } = useGetOrder(id!);
 
-  if (isLoading || !order) {
+  if (!order) {
+    return (
+      <Layout>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+          <Film size={40} className="text-muted-foreground/40" />
+          <p className="text-muted-foreground">Order tracking is not available in preview mode.</p>
+          <a href="/" className="text-sm text-primary hover:underline">← Back to movies</a>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex-1 flex flex-col items-center justify-center">

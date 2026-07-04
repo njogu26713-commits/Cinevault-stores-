@@ -6,6 +6,7 @@ import {
   Star, Download, Sparkles, Search, X, Flame, Clock3, Clock,
   Bell, BellOff, Check, Send,
 } from "lucide-react";
+import type { Movie, Series } from "@workspace/api-client-react";
 import {
   useListMovies,
   useListFeaturedMovies,
@@ -14,9 +15,7 @@ import {
   useListComingSoonMovies,
   useListComingSoonSeries,
   getListMoviesQueryKey,
-  type Movie,
-  type Series,
-} from "@workspace/api-client-react";
+} from "../hooks/use-static-api";
 import { Layout } from "../components/layout";
 import { MovieCard } from "../components/movie-card";
 import { formatKes } from "../lib/utils";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Layout } from "../components/layout";
-import { useGetUserOrders, getGetUserOrdersQueryKey } from "@workspace/api-client-react";
+import { useGetUserOrders } from "../hooks/use-static-api";
 import { Search, Loader2, History, AlertCircle, Play } from "lucide-react";
 import { formatKes } from "../lib/utils";
 
@@ -11,12 +11,7 @@ export default function Purchases() {
     () => localStorage.getItem("cv_username") || null
   );
 
-  const { data: orders, isLoading, isError } = useGetUserOrders(username!, {
-    query: {
-      enabled: !!username,
-      queryKey: getGetUserOrdersQueryKey(username!)
-    }
-  });
+  const { data: orders, isLoading, isError } = useGetUserOrders(username ?? "");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

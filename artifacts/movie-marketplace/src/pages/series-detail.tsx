@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { useState } from "react";
-import { useGetSeries, getGetSeriesQueryKey } from "@workspace/api-client-react";
+import { useGetSeries, getGetSeriesQueryKey } from "../hooks/use-static-api";
 import { Layout } from "../components/layout";
 import { StatusBadge } from "../components/series-card";
 import { SeriesCheckoutModal } from "../components/series-checkout-modal";

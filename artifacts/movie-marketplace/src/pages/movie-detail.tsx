@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { useState } from "react";
-import { useGetMovie, getGetMovieQueryKey, useListMovies, getListMoviesQueryKey } from "@workspace/api-client-react";
+import { useGetMovie, getGetMovieQueryKey, useListMovies, getListMoviesQueryKey } from "../hooks/use-static-api";
 import { Layout } from "../components/layout";
 import { QualityBadge, MovieCard } from "../components/movie-card";
 import { CheckoutModal } from "../components/checkout-modal";

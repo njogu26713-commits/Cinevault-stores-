@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tv, Loader2, AlertCircle } from "lucide-react";
-import { useListSeries, useListSeriesGenres, getListSeriesQueryKey } from "@workspace/api-client-react";
+import { useListSeries, useListSeriesGenres, getListSeriesQueryKey } from "../hooks/use-static-api";
 import { Layout } from "../components/layout";
 import { SeriesCard } from "../components/series-card";
 
