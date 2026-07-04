@@ -574,7 +574,13 @@ export async function uploadFileToChannel(
       }
 
       const msgLower = msg.toLowerCase();
+
+      // FILE_PARTS_INVALID means the MTProto upload session got corrupted —
+      // reconnecting resets it and a fresh attempt succeeds with a new file ID.
+      const needsReconnect = msgLower.includes("file_parts_invalid") || msgLower.includes("file_parts_missing");
+
       const isRetryable =
+        needsReconnect ||
         msgLower.includes("timeout") ||
         msgLower.includes("network") ||
         msgLower.includes("connection") ||
@@ -582,6 +588,17 @@ export async function uploadFileToChannel(
         msgLower.includes("reset");
 
       if (!isRetryable || attempt >= MAX_RETRIES - 1) break;
+
+      // Reconnect before retry to clear stale upload state
+      if (needsReconnect && _client) {
+        try {
+          logger.info({ jobId, attempt }, "GramJS: Reconnecting to clear stale upload state");
+          await _client.disconnect().catch(() => {});
+          await _client.connect();
+        } catch (reconnErr) {
+          logger.warn({ reconnErr }, "GramJS: Reconnect failed — continuing anyway");
+        }
+      }
     }
   }
 
