@@ -1,6 +1,6 @@
 import { useParams, Link } from "wouter";
 import { Layout } from "../components/layout";
-import { useGetOrder } from "@workspace/api-client-react";
+import { useGetOrder, getGetOrderQueryKey } from "@workspace/api-client-react";
 import { Loader2, CheckCircle2, AlertCircle, Clock, Send, ShieldCheck, Film } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -9,6 +9,7 @@ export default function OrderStatus() {
 
   const { data: order, isLoading, isError } = useGetOrder(id!, {
     query: {
+      queryKey: getGetOrderQueryKey(id!),
       enabled: !!id,
       refetchInterval: (query) => {
         const status = query.state.data?.status;
