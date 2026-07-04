@@ -2,6 +2,8 @@ import { useParams, useLocation, Link } from "wouter";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useGetSeries, getGetSeriesQueryKey, useListSeries } from "@workspace/api-client-react";
 import { ReviewSection } from "../components/review-section";
+import { SeriesCheckoutModal } from "../components/series-checkout-modal";
+import { type Series } from "@workspace/api-client-react";
 import {
   Loader2, ArrowLeft, AlertCircle, Play, Pause,
   Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward,
@@ -252,8 +254,23 @@ function VideoPlayer({ src, poster, subtitleUrl, resumeAt, progressKey: pKey, on
         crossOrigin="anonymous"
         playsInline
         poster={poster}
-        onError={(e) => {
+        onError={async (e) => {
           e.preventDefault(); e.stopPropagation();
+          // A PURCHASE_REQUIRED (403) JSON body served in place of video bytes
+          // fails browser decoding, so probe the URL directly to distinguish
+          // "must pay" from a real playback/file error.
+          try {
+            const probe = await fetch(src, { headers: { Range: "bytes=0-1" } });
+            if (probe.status === 403) {
+              const body = await probe.json().catch(() => null);
+              if (body?.error === "PURCHASE_REQUIRED") {
+                onError("PURCHASE_REQUIRED");
+                return;
+              }
+            }
+          } catch {
+            // Ignore probe failures, fall through to generic error handling
+          }
           const code = e.currentTarget.error?.code;
           onError(
             code === 4
@@ -490,6 +507,36 @@ function EpisodeList({ seasons, currentSIdx, currentEIdx, seriesId }: EpisodeLis
   );
 }
 
+// ── Checkout (locked-episode paywall) ──────────────────────────────────────
+function EpisodeCheckoutButton({
+  series,
+  seasonNumber,
+  episodeNumber,
+}: {
+  series: Series;
+  seasonNumber: number;
+  episodeNumber: number;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-8 py-3 rounded-xl transition-colors"
+      >
+        Buy Now
+      </button>
+      <SeriesCheckoutModal
+        series={series}
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        initialSeasonNumber={seasonNumber}
+        initialEpisodeNumber={episodeNumber}
+      />
+    </>
+  );
+}
+
 // ── Username gate ──────────────────────────────────────────────────────────
 function UsernameGate({ onConfirm }: { onConfirm: (u: string) => void }) {
   const [val, setVal] = useState("");
@@ -607,6 +654,19 @@ export default function WatchEpisode() {
       {/* ── Content ──────────────────────────────────────────────────────── */}
       {!confirmed ? (
         <UsernameGate onConfirm={handleConfirm} />
+      ) : videoError === "PURCHASE_REQUIRED" ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md text-center space-y-4">
+            <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+              <Play size={26} className="text-primary" />
+            </div>
+            <h2 className="text-white text-xl font-bold">Purchase required</h2>
+            <p className="text-white/50 text-sm leading-relaxed">
+              The first 2 episodes of each season are free. Buy this season or episode to keep watching.
+            </p>
+            <EpisodeCheckoutButton series={series} seasonNumber={season!.seasonNumber} episodeNumber={episode.episodeNumber} />
+          </div>
+        </motion.div>
       ) : videoError ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-md text-center space-y-4">

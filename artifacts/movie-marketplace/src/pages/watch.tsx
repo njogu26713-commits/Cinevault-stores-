@@ -2,6 +2,8 @@ import { useParams, useLocation, Link } from "wouter";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useGetMovie, getGetMovieQueryKey, useListMovies } from "@workspace/api-client-react";
 import { ReviewSection } from "../components/review-section";
+import { CheckoutModal } from "../components/checkout-modal";
+import { type Movie } from "@workspace/api-client-react";
 import {
   Loader2, ArrowLeft, AlertCircle, Play, Pause,
   Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward,
@@ -40,15 +42,20 @@ function fmt(s: number) {
 }
 
 // ── Video Player ───────────────────────────────────────────────────────────
+// Must match FREE_MOVIE_PREVIEW_SECONDS in artifacts/api-server/src/routes/stream.ts
+const FREE_MOVIE_PREVIEW_SECONDS = 20 * 60;
+
 interface PlayerProps {
   src: string;
   poster?: string;
   subtitleUrl?: string;
+  isFreePreview: boolean;
   onError: (msg: string) => void;
+  onPreviewLimitReached: () => void;
   onBack: () => void;
 }
 
-function VideoPlayer({ src, poster, subtitleUrl, onError, onBack }: PlayerProps) {
+function VideoPlayer({ src, poster, subtitleUrl, isFreePreview, onError, onPreviewLimitReached, onBack }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -105,6 +112,9 @@ function VideoPlayer({ src, poster, subtitleUrl, onError, onBack }: PlayerProps)
     }
   }, []);
 
+  const isFreePreviewRef = useRef(isFreePreview);
+  useEffect(() => { isFreePreviewRef.current = isFreePreview; }, [isFreePreview]);
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -113,6 +123,13 @@ function VideoPlayer({ src, poster, subtitleUrl, onError, onBack }: PlayerProps)
     v.playbackRate = parseFloat(speed);
     const onTime = () => {
       setProgress(v.currentTime);
+      // Enforce free-preview cutoff client-side (mirrors backend byte cap)
+      if (isFreePreviewRef.current && v.currentTime >= FREE_MOVIE_PREVIEW_SECONDS) {
+        v.pause();
+        v.currentTime = FREE_MOVIE_PREVIEW_SECONDS;
+        onPreviewLimitReached();
+        return;
+      }
       // Save progress throttled to every 5 real-time seconds
       const now = Date.now();
       if (now - lastSaveRef.current > 5000) {
@@ -272,9 +289,24 @@ function VideoPlayer({ src, poster, subtitleUrl, onError, onBack }: PlayerProps)
         crossOrigin="anonymous"
         playsInline
         poster={poster}
-        onError={(e) => {
+        onError={async (e) => {
           e.preventDefault();
           e.stopPropagation();
+          // A PURCHASE_REQUIRED (403) JSON body served in place of video bytes
+          // fails browser decoding, so probe the URL directly to distinguish
+          // "must pay" from a real playback/file error.
+          try {
+            const probe = await fetch(src, { headers: { Range: "bytes=0-1" } });
+            if (probe.status === 403) {
+              const body = await probe.json().catch(() => null);
+              if (body?.error === "PURCHASE_REQUIRED") {
+                onPreviewLimitReached();
+                return;
+              }
+            }
+          } catch {
+            // Ignore probe failures, fall through to generic error handling
+          }
           const code = e.currentTarget.error?.code;
           onError(
             code === 4
@@ -453,6 +485,22 @@ function VideoPlayer({ src, poster, subtitleUrl, onError, onBack }: PlayerProps)
   );
 }
 
+// ── Checkout (post-preview paywall) ────────────────────────────────────────
+function CheckoutButton({ movie }: { movie: Movie }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-8 py-3 rounded-xl transition-colors"
+      >
+        Buy Now
+      </button>
+      <CheckoutModal movie={movie} isOpen={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
 // ── Username gate ──────────────────────────────────────────────────────────
 function UsernameGate({ onConfirm }: { onConfirm: (u: string) => void }) {
   const [val, setVal] = useState("");
@@ -501,6 +549,8 @@ export default function WatchMovie() {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [liked, setLiked] = useState(false);
   const [inWatchlist, setInWatchlist] = useState(false);
+  const [isFreePreview, setIsFreePreview] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   const { data: movie, isLoading } = useGetMovie(id!, {
     query: { enabled: !!id, queryKey: getGetMovieQueryKey(id!) },
@@ -510,7 +560,20 @@ export default function WatchMovie() {
 
   const streamUrl = `/api/stream/movie/${id}${username ? `?username=${encodeURIComponent(username)}` : ""}`;
 
-  useEffect(() => { setVideoError(null); }, [id]);
+  useEffect(() => { setVideoError(null); setShowPaywall(false); }, [id]);
+
+  // Ask the backend up front whether this viewer has purchased the movie,
+  // so the player knows to enforce the 20-minute free-preview cutoff.
+  useEffect(() => {
+    if (!id || !confirmed) return;
+    let cancelled = false;
+    const checkUrl = `/api/stream/movie/${id}?check=true${username ? `&username=${encodeURIComponent(username)}` : ""}`;
+    fetch(checkUrl)
+      .then((r) => r.json().catch(() => null))
+      .then((body) => { if (!cancelled) setIsFreePreview(!!body?.freePreview); })
+      .catch(() => { if (!cancelled) setIsFreePreview(false); });
+    return () => { cancelled = true; };
+  }, [id, confirmed, username]);
 
   const handleConfirm = (u: string) => { save(u); setConfirmed(true); };
 
@@ -599,6 +662,23 @@ export default function WatchMovie() {
             </div>
           </div>
         </motion.div>
+      ) : showPaywall ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex-1 flex items-center justify-center p-6"
+        >
+          <div className="max-w-md text-center space-y-4">
+            <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+              <Play size={26} className="text-primary" />
+            </div>
+            <h2 className="text-white text-xl font-bold">Free preview ended</h2>
+            <p className="text-white/50 text-sm leading-relaxed">
+              You've watched your free 20-minute preview of {movie.title}. Buy now to keep watching and get it delivered on Telegram.
+            </p>
+            <CheckoutButton movie={movie} />
+          </div>
+        </motion.div>
       ) : (
         <>
           {/* Player */}
@@ -607,7 +687,9 @@ export default function WatchMovie() {
               src={streamUrl}
               poster={movie.bannerUrl || movie.posterUrl}
               subtitleUrl={movie.subtitleUrl ?? undefined}
+              isFreePreview={isFreePreview}
               onError={setVideoError}
+              onPreviewLimitReached={() => setShowPaywall(true)}
               onBack={() => navigate(`/movie/${id}`)}
             />
           </div>
