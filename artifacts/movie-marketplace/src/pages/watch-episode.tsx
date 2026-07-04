@@ -89,7 +89,7 @@ function VideoPlayer({ src, poster, subtitleUrl, resumeAt, progressKey: pKey, on
         screen.orientation.unlock();
         setIsLandscapeLocked(false);
       } else {
-        await screen.orientation.lock("landscape");
+        await (screen.orientation as any).lock("landscape");
         setIsLandscapeLocked(true);
       }
     } catch {
