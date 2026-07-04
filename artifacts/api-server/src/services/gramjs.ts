@@ -427,23 +427,26 @@ async function doSendFile(
       new Api.DocumentAttributeFilename({ fileName: path.basename(filePath) }),
     ];
 
+    // workers: 1 — do NOT increase; parallel workers cause FILE_PARTS_INVALID
+    // (upload.SaveBigFilePart) errors from Telegram MTProto on large files.
     return await (_client as any).sendFile(entity, {
       file: filePath,
       caption,
       forceDocument: false,
       thumb: thumbPath ?? undefined,
       attributes,
-      workers: 4,
+      workers: 1,
       progressCallback,
     });
   }
 
   // Document fallback
+  // workers: 1 — do NOT increase; parallel workers cause FILE_PARTS_INVALID errors.
   return await (_client as any).sendFile(entity, {
     file: filePath,
     caption,
     forceDocument: true,
-    workers: 4,
+    workers: 1,
     progressCallback,
   });
 }
