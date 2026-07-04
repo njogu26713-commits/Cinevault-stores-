@@ -484,65 +484,16 @@ export default function Home() {
                       initial={{ opacity: 0, y: 32 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.2, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                      className="max-w-2xl"
                     >
-                      <div className="flex flex-wrap items-center gap-2 mb-4">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-white text-xs font-bold shadow-lg shadow-primary/30">
-                          <Sparkles size={11} />
-                          Featured
-                        </span>
-                        <span className="px-3 py-1 rounded-full bg-white/15 text-white text-xs font-bold backdrop-blur-sm border border-white/20">
-                          {heroMovie.quality}
-                        </span>
-                        {heroMovie.rating && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold border border-amber-500/30">
-                            <Star size={11} className="fill-amber-400" />
-                            {heroMovie.rating.toFixed(1)}
-                          </span>
-                        )}
-                        {heroMovie.genre?.slice(0, 2).map(g => (
-                          <span key={g} className="px-3 py-1 rounded-full bg-white/10 text-white/80 text-xs font-medium backdrop-blur-sm border border-white/12">
-                            {g}
-                          </span>
-                        ))}
-                      </div>
-
-                      <h1 className="text-5xl md:text-[3.5rem] font-black text-white leading-tight mb-4 drop-shadow-2xl tracking-tight">
+                      <h1 className="text-5xl md:text-[3.5rem] font-black text-white leading-tight drop-shadow-2xl tracking-tight">
                         {heroMovie.title}
                       </h1>
-
-                      <p className="text-base text-white/65 mb-8 line-clamp-2 leading-relaxed max-w-lg">
-                        {heroMovie.description}
-                      </p>
-
-                      <div className="flex items-center gap-3">
-                        <Link
-                          href={`/movie/${heroMovie.id}`}
-                          className="inline-flex items-center gap-2 bg-white text-black font-bold py-3 px-7 rounded-full shadow-xl hover:bg-white/90 transition-all hover:scale-105 active:scale-95"
-                        >
-                          <PlayCircle size={18} className="fill-black" />
-                          View Details
-                        </Link>
-                        <span className="text-white/70 font-mono text-sm font-semibold bg-white/10 backdrop-blur-md border border-white/15 px-5 py-3 rounded-full">
-                          {formatKes(heroMovie.price)}
-                        </span>
-                      </div>
                     </motion.div>
                   </div>
                 </div>
               </motion.div>
             </AnimatePresence>
 
-            {total > 1 && (
-              <>
-                <button onClick={prev} className="absolute left-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-md border border-white/15 transition-all hover:scale-110" aria-label="Previous">
-                  <ChevronLeft size={20} />
-                </button>
-                <button onClick={next} className="absolute right-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-md border border-white/15 transition-all hover:scale-110" aria-label="Next">
-                  <ChevronRight size={20} />
-                </button>
-              </>
-            )}
 
             {total > 1 && (
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
