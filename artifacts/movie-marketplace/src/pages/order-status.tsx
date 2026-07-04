@@ -1,25 +1,21 @@
 import { useParams, Link } from "wouter";
 import { Layout } from "../components/layout";
-import { useGetOrder } from "../hooks/use-static-api";
+import { useGetOrder } from "@workspace/api-client-react";
 import { Loader2, CheckCircle2, AlertCircle, Clock, Send, ShieldCheck, Film } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function OrderStatus() {
   const { id } = useParams<{ id: string }>();
 
-  const { data: order, isLoading } = useGetOrder(id!);
-
-  if (!order) {
-    return (
-      <Layout>
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
-          <Film size={40} className="text-muted-foreground/40" />
-          <p className="text-muted-foreground">Order tracking is not available in preview mode.</p>
-          <a href="/" className="text-sm text-primary hover:underline">← Back to movies</a>
-        </div>
-      </Layout>
-    );
-  }
+  const { data: order, isLoading, isError } = useGetOrder(id!, {
+    query: {
+      enabled: !!id,
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        return status === "delivered" || status === "failed" ? false : 3000;
+      },
+    },
+  });
 
   if (isLoading) {
     return (
@@ -27,6 +23,18 @@ export default function OrderStatus() {
         <div className="flex-1 flex flex-col items-center justify-center">
           <Loader2 className="animate-spin text-primary mb-4" size={40} />
           <p className="text-muted-foreground">Locating your order...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (isError || !order) {
+    return (
+      <Layout>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+          <Film size={40} className="text-muted-foreground/40" />
+          <p className="text-muted-foreground">Order not found or could not be loaded.</p>
+          <a href="/" className="text-sm text-primary hover:underline">← Back to movies</a>
         </div>
       </Layout>
     );

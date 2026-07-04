@@ -1,9 +1,8 @@
 import { useParams, useLocation, Link } from "wouter";
 import { useRef, useState, useEffect, useCallback } from "react";
-import { useGetMovie, getGetMovieQueryKey, useListMovies } from "../hooks/use-static-api";
+import { useGetMovie, getGetMovieQueryKey, useListMovies, type Movie } from "@workspace/api-client-react";
 import { ReviewSection } from "../components/review-section";
 import { CheckoutModal } from "../components/checkout-modal";
-import { type Movie } from "@workspace/api-client-react";
 import {
   Loader2, ArrowLeft, AlertCircle, Play, Pause,
   Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward,

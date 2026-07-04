@@ -1,9 +1,8 @@
 import { useParams, useLocation, Link } from "wouter";
 import { useRef, useState, useEffect, useCallback } from "react";
-import { useGetSeries, getGetSeriesQueryKey, useListSeries } from "../hooks/use-static-api";
+import { useGetSeries, getGetSeriesQueryKey, useListSeries, type Series } from "@workspace/api-client-react";
 import { ReviewSection } from "../components/review-section";
 import { SeriesCheckoutModal } from "../components/series-checkout-modal";
-import { type Series } from "@workspace/api-client-react";
 import {
   Loader2, ArrowLeft, AlertCircle, Play, Pause,
   Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward,

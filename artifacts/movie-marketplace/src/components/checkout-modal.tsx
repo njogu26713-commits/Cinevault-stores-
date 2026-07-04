@@ -5,8 +5,7 @@ import { X, Smartphone, Send, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type Movie } from "@workspace/api-client-react";
-import { useCreateOrder } from "../hooks/use-static-api";
+import { type Movie, useCreateOrder } from "@workspace/api-client-react";
 import { formatKes } from "../lib/utils";
 import { QualityBadge } from "./movie-card";
 

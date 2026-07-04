@@ -15,7 +15,7 @@ import {
   useListComingSoonMovies,
   useListComingSoonSeries,
   getListMoviesQueryKey,
-} from "../hooks/use-static-api";
+} from "@workspace/api-client-react";
 import { Layout } from "../components/layout";
 import { MovieCard } from "../components/movie-card";
 import { formatKes } from "../lib/utils";
