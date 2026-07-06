@@ -319,6 +319,39 @@ router.post("/movies/:id/upload-file", upload.single("file"), async (req, res) =
   }
 });
 
+// ── PUT /admin/movies/:id ─────────────────────────────────────────────────────
+router.put("/movies/:id", async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid movie ID" });
+  }
+
+  const { telegramFileId } = req.body as { telegramFileId?: string };
+
+  if (!telegramFileId || typeof telegramFileId !== "string") {
+    return res.status(400).json({ error: "telegramFileId is required" });
+  }
+
+  try {
+    const movie = await Movie.findByIdAndUpdate(
+      id,
+      { telegramFileId: telegramFileId.trim() },
+      { new: true }
+    );
+
+    if (!movie) {
+      return res.status(404).json({ error: "Movie not found" });
+    }
+
+    logger.info({ movieId: id, telegramFileId }, "Movie file ID saved manually");
+    return res.json({ telegramFileId: movie.telegramFileId });
+  } catch (err) {
+    logger.error({ err, movieId: id }, "Failed to save movie file ID");
+    return res.status(500).json({ error: "Failed to save file ID" });
+  }
+});
+
 // ── POST /admin/series/:id/seasons/:sIdx/episodes/:eIdx/upload-file ──────────
 router.post("/series/:id/seasons/:sIdx/episodes/:eIdx/upload-file", upload.single("file"), async (req, res) => {
   const { id, sIdx, eIdx } = req.params;
