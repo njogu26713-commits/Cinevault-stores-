@@ -281,6 +281,14 @@ router.get("/movie/:id", async (req, res) => {
     });
   }
 
+  // Guard: bot token must be set before attempting Bot API streaming
+  if (!process.env["TELEGRAM_BOT_TOKEN"]) {
+    return res.status(503).json({
+      error: "BOT_TOKEN_MISSING",
+      message: "TELEGRAM_BOT_TOKEN is not configured. Add it in Admin → Settings → Telegram Bot Token, then restart the server.",
+    });
+  }
+
   try {
     // Fetch actual file metadata so the preview cap is proportional to the real file size
     const bot = getTelegramBot();
@@ -311,9 +319,13 @@ router.get("/movie/:id", async (req, res) => {
   } catch (err: any) {
     logger.error({ err, movieId: id }, "Streaming failed");
     if (!res.headersSent) {
+      // Distinguish: missing file path means file is >20 MB (Bot API limit)
+      const isTooBig = err?.message?.includes(">20 MB") || err?.message?.includes("file path");
       return res.status(503).json({
         error: "MTPROTO_REQUIRED",
-        message: "File is too large for the Bot API (>20 MB). Go to Admin → Telegram Connect and sign in to stream large files.",
+        message: isTooBig
+          ? "File is too large for the Bot API (>20 MB). Go to Admin → Telegram Connect and sign in to stream large files."
+          : `Streaming failed: ${err?.message ?? "unknown error"}. Check Admin → Settings that TELEGRAM_BOT_TOKEN is set correctly.`,
       });
     }
     return;

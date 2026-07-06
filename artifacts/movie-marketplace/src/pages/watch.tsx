@@ -291,15 +291,21 @@ function VideoPlayer({ src, poster, subtitleUrl, isFreePreview, onError, onPrevi
         onError={async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          // A PURCHASE_REQUIRED (403) JSON body served in place of video bytes
-          // fails browser decoding, so probe the URL directly to distinguish
-          // "must pay" from a real playback/file error.
+          // Probe the stream URL to get the real error message from the server
+          // (the browser only gives us a numeric error code, not the body)
           try {
             const probe = await fetch(src, { headers: { Range: "bytes=0-1" } });
             if (probe.status === 403) {
               const body = await probe.json().catch(() => null);
               if (body?.error === "PURCHASE_REQUIRED") {
                 onPreviewLimitReached();
+                return;
+              }
+            }
+            if (probe.status >= 400) {
+              const body = await probe.json().catch(() => null);
+              if (body?.message) {
+                onError(body.message);
                 return;
               }
             }
