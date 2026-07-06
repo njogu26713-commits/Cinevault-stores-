@@ -319,7 +319,7 @@ function VideoPlayer({ src, poster, subtitleUrl, resumeAt, progressKey: pKey, on
           </div>
         </div>
 
-        <div className="flex items-center gap-2 px-4 pb-4" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)" }}>
+        <div className="flex items-center gap-2 px-4" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)", paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
           <button aria-label={playing ? "Pause" : "Play"} className="text-white/90 hover:text-white transition-colors p-1" onClick={togglePlay}>
             {playing ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}
           </button>
@@ -624,7 +624,9 @@ export default function WatchEpisode() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col font-sans">
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 flex items-center gap-3 px-4 md:px-6 h-14 bg-[#0a0a0f]/90 backdrop-blur-xl border-b border-white/[0.06]">
+      <nav className="sticky top-0 z-50 flex items-center gap-3 px-4 md:px-6 h-14 bg-[#0a0a0f]/90 backdrop-blur-xl border-b border-white/[0.06]"
+        style={{ paddingTop: "env(safe-area-inset-top)", height: "calc(3.5rem + env(safe-area-inset-top))" }}
+      >
         <button
           onClick={() => navigate(`/series/${id}`)}
           className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm"

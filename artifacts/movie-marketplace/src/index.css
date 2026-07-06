@@ -101,6 +101,9 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground selection:bg-primary/25;
+    /* Extend background into safe areas so there's no gap on notched devices */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   ::-webkit-scrollbar {
@@ -127,4 +130,15 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Safe-area helpers — zero on devices without a notch, inset value otherwise */
+  .safe-top    { padding-top:    env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-left   { padding-left:   env(safe-area-inset-left); }
+  .safe-right  { padding-right:  env(safe-area-inset-right); }
+
+  .pt-safe { padding-top:    env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe { padding-left:   env(safe-area-inset-left); }
+  .pr-safe { padding-right:  env(safe-area-inset-right); }
 }

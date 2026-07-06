@@ -90,7 +90,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         scrolled
           ? "bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/6 shadow-2xl"
           : "bg-gradient-to-b from-black/70 to-transparent border-transparent"
-      }`}>
+      }`}
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30 group-hover:shadow-primary/50 transition-all group-hover:scale-105">
@@ -131,11 +133,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col" style={{ paddingTop: "calc(4rem + env(safe-area-inset-top))" }}>
         {children}
       </main>
 
-      <footer className="border-t border-white/8 py-10 mt-16 bg-[#0a0a0a]">
+      <footer className="border-t border-white/8 py-10 mt-16 bg-[#0a0a0a]"
+        style={{ paddingBottom: "calc(2.5rem + env(safe-area-inset-bottom))" }}
+      >
         <div className="max-w-[1600px] mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
