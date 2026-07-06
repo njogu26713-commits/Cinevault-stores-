@@ -652,6 +652,8 @@ export function SeriesForm() {
                   uploadPhase={uploadPhase}
                   uploadSpeed={uploadSpeed}
                   triggerEpisodeUpload={triggerEpisodeUpload}
+                  seriesId={id}
+                  onToast={toast}
                 />
               ))}
             </CardContent>
@@ -682,6 +684,8 @@ function SeasonEditor({
   uploadPhase,
   uploadSpeed,
   triggerEpisodeUpload,
+  seriesId,
+  onToast,
 }: {
   sIdx: number;
   form: any;
@@ -693,6 +697,8 @@ function SeasonEditor({
   uploadPhase: string;
   uploadSpeed: number;
   triggerEpisodeUpload: (sIdx: number, eIdx: number) => void;
+  seriesId: string | undefined;
+  onToast: (opts: { title: string; variant?: "destructive" }) => void;
 }) {
   const { fields: episodeFields, append: appendEpisode, remove: removeEpisode } = useFieldArray({
     control: form.control,
@@ -848,7 +854,7 @@ function SeasonEditor({
                           <Upload className="w-3 h-3 mr-1" /> Replace
                         </Button>
                       )}
-                      {id && (
+                      {seriesId && (
                         <details className="group">
                           <summary className="cursor-pointer text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 list-none select-none">
                             <Pencil className="w-2.5 h-2.5" /> Paste File ID
@@ -868,10 +874,10 @@ function SeasonEditor({
                               onClick={async () => {
                                 const input = document.getElementById(pasteKey) as HTMLInputElement;
                                 const value = input?.value?.trim();
-                                if (!value || !id) return;
+                                if (!value || !seriesId) return;
                                 try {
                                   const res = await fetch(
-                                    `/api/admin/series/${id}/seasons/${sIdx}/episodes/${eIdx}/file-id`,
+                                    `/api/admin/series/${seriesId}/seasons/${sIdx}/episodes/${eIdx}/file-id`,
                                     {
                                       method: "PUT",
                                       headers: { "Content-Type": "application/json" },
@@ -880,9 +886,9 @@ function SeasonEditor({
                                   );
                                   if (!res.ok) throw new Error(await res.text());
                                   form.setValue(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`, value);
-                                  toast({ title: "File ID saved!" });
+                                  onToast({ title: "File ID saved!" });
                                 } catch {
-                                  toast({ title: "Failed to save File ID", variant: "destructive" });
+                                  onToast({ title: "Failed to save File ID", variant: "destructive" });
                                 }
                               }}
                             >
