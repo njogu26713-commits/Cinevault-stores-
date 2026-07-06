@@ -419,6 +419,42 @@ router.post("/series/:id/seasons/:sIdx/episodes/:eIdx/upload-file", upload.singl
   }
 });
 
+// ── PUT /admin/series/:id/seasons/:sIdx/episodes/:eIdx/file-id ───────────────
+router.put("/series/:id/seasons/:sIdx/episodes/:eIdx/file-id", async (req, res) => {
+  const { id, sIdx, eIdx } = req.params;
+  const seasonIdx = Number(sIdx);
+  const episodeIdx = Number(eIdx);
+
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid series ID" });
+  }
+
+  const { telegramFileId } = req.body as { telegramFileId?: string };
+  if (!telegramFileId || typeof telegramFileId !== "string") {
+    return res.status(400).json({ error: "telegramFileId is required" });
+  }
+
+  try {
+    const series = await Series.findById(id);
+    if (!series) return res.status(404).json({ error: "Series not found" });
+
+    const season = series.seasons[seasonIdx];
+    if (!season) return res.status(404).json({ error: "Season not found" });
+
+    const episode = season.episodes[episodeIdx];
+    if (!episode) return res.status(404).json({ error: "Episode not found" });
+
+    series.seasons[seasonIdx].episodes[episodeIdx].telegramFileId = telegramFileId.trim();
+    await series.save();
+
+    logger.info({ seriesId: id, seasonIdx, episodeIdx, telegramFileId }, "Episode file ID saved manually");
+    return res.json({ telegramFileId: telegramFileId.trim() });
+  } catch (err) {
+    logger.error({ err, seriesId: id }, "Failed to save episode file ID");
+    return res.status(500).json({ error: "Failed to save file ID" });
+  }
+});
+
 // ── GET /admin/settings ──────────────────────────────────────────────────────
 router.get("/settings", async (_req, res) => {
   const mask = (v: string | undefined) => (v ? v.slice(0, 4) + "****" : "");

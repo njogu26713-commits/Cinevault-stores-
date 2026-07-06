@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles, Upload, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles, Upload, CheckCircle2, Pencil } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 const episodeSchema = z.object({
@@ -802,6 +802,7 @@ function SeasonEditor({
                 {(() => {
                   const fileId = form.watch(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`);
                   const isThisUploading = uploadingEpisode?.sIdx === sIdx && uploadingEpisode?.eIdx === eIdx;
+                  const pasteKey = `paste-${sIdx}-${eIdx}`;
                   const phaseLabel =
                     uploadPhase === "to_server" ? `Server ${uploadProgress}%` :
                     uploadPhase === "to_telegram" ? `TG ${uploadProgress}%` :
@@ -846,6 +847,49 @@ function SeasonEditor({
                         >
                           <Upload className="w-3 h-3 mr-1" /> Replace
                         </Button>
+                      )}
+                      {id && (
+                        <details className="group">
+                          <summary className="cursor-pointer text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 list-none select-none">
+                            <Pencil className="w-2.5 h-2.5" /> Paste File ID
+                          </summary>
+                          <div className="mt-1 flex gap-1">
+                            <input
+                              id={pasteKey}
+                              type="text"
+                              placeholder="BQACAgIAAxk…"
+                              className="flex-1 h-7 px-2 text-xs rounded border bg-background font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                              defaultValue={fileId ?? ""}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-7 text-xs px-2"
+                              onClick={async () => {
+                                const input = document.getElementById(pasteKey) as HTMLInputElement;
+                                const value = input?.value?.trim();
+                                if (!value || !id) return;
+                                try {
+                                  const res = await fetch(
+                                    `/api/admin/series/${id}/seasons/${sIdx}/episodes/${eIdx}/file-id`,
+                                    {
+                                      method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ telegramFileId: value }),
+                                    }
+                                  );
+                                  if (!res.ok) throw new Error(await res.text());
+                                  form.setValue(`seasons.${sIdx}.episodes.${eIdx}.telegramFileId`, value);
+                                  toast({ title: "File ID saved!" });
+                                } catch {
+                                  toast({ title: "Failed to save File ID", variant: "destructive" });
+                                }
+                              }}
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        </details>
                       )}
                     </div>
                   );
