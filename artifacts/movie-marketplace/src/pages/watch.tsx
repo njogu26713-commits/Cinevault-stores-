@@ -634,19 +634,7 @@ export default function WatchMovie() {
       </nav>
 
       {/* ── Player area ──────────────────────────────────────────────────── */}
-      {(movie as any).tmdbId && !movie.telegramFileId && !(movie as any).telegramMessageId ? (
-        /* VidSrc fallback — no Telegram file, but TMDB ID is set */
-        <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
-          <iframe
-            src={`https://vidsrc.me/embed/movie/${(movie as any).tmdbId}`}
-            className="w-full h-full"
-            allowFullScreen
-            allow="autoplay; fullscreen"
-            referrerPolicy="no-referrer"
-            title={movie.title}
-          />
-        </div>
-      ) : !confirmed ? (
+      {!confirmed ? (
         <UsernameGate onConfirm={handleConfirm} />
       ) : videoError ? (
         <motion.div
