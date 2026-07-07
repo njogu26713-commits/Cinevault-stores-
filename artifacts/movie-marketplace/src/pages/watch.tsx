@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Hls from "hls.js";
+import { fetchMovieStream } from "../lib/vidsrc";
 
 // ── LocalStorage prefs ─────────────────────────────────────────────────────
 function loadPref<T>(key: string, fallback: T): T {
@@ -617,18 +618,15 @@ export default function WatchMovie() {
 
   useEffect(() => {
     if (!id || !hasExternal) return;
+    const tmdbId = (movie as any)?.tmdbId;
+    if (!tmdbId) return;
     setConsumerLoading(true);
     setConsumerUrl(null);
     setConsumerError(null);
     let cancelled = false;
-    fetch(`/api/consumet/movie/${id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (data.url) setConsumerUrl(data.url);
-        else setConsumerError(data.error || "Stream not available");
-      })
-      .catch(() => { if (!cancelled) setConsumerError("Could not connect to streaming service"); })
+    fetchMovieStream(tmdbId)
+      .then((stream) => { if (!cancelled) setConsumerUrl(stream.url); })
+      .catch((err: Error) => { if (!cancelled) setConsumerError(err.message || "Stream not available"); })
       .finally(() => { if (!cancelled) setConsumerLoading(false); });
     return () => { cancelled = true; };
   }, [id, hasExternal]);
@@ -753,11 +751,13 @@ export default function WatchMovie() {
                   <p className="text-white/50 text-sm text-center px-4">{consumerError}</p>
                   <button
                     onClick={() => {
+                      const tmdbId = (movie as any)?.tmdbId;
+                      if (!tmdbId) return;
                       setConsumerError(null); setConsumerLoading(true); setConsumerUrl(null);
-                      fetch(`/api/consumet/movie/${id}`).then((r) => r.json()).then((d) => {
-                        if (d.url) setConsumerUrl(d.url);
-                        else setConsumerError(d.error || "Stream not available");
-                      }).catch(() => setConsumerError("Could not connect")).finally(() => setConsumerLoading(false));
+                      fetchMovieStream(tmdbId)
+                        .then((s) => setConsumerUrl(s.url))
+                        .catch((e: Error) => setConsumerError(e.message || "Stream not available"))
+                        .finally(() => setConsumerLoading(false));
                     }}
                     className="text-white/40 hover:text-white/70 text-sm underline underline-offset-2 transition-colors"
                   >

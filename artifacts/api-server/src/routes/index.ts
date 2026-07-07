@@ -11,6 +11,7 @@ import researchRouter from "./research";
 import mtprotoRouter from "./mtproto";
 import streamRouter from "./stream";
 import consumerRouter from "./consumet";
+import vidsrcRouter from "./vidsrc";
 import { adminSubtitleRouter, subtitleServeRouter } from "./subtitles";
 import { requireAdminAuth } from "../middleware/adminAuth";
 
@@ -35,6 +36,7 @@ router.use("/orders", ordersRouter);
 router.use("/payments", paymentsRouter);
 router.use("/stream", streamRouter);
 router.use("/consumet", consumerRouter);
+router.use("/vidsrc", vidsrcRouter);
 
 // Subtitle serve (public — no auth)
 router.use("/subtitle", subtitleServeRouter);

@@ -69,6 +69,7 @@ ADMIN_JWT_SECRET = "2d565a320e8f88ffd36c28be039efcdfceddefc6eb68696fa16b37746e4a
 TELEGRAM_CHANNEL_ID = "-1004396008121"
 PAYMENT_BYPASS = "true"
 VITE_BOT_USERNAME = "Firebix_bot"
+VITE_VIDSRC_API_URL = "https://cinevault-vidsrc.vercel.app"
 
 [[ports]]
 localPort = 5000
