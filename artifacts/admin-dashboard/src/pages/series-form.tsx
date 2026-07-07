@@ -14,6 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { TmdbSearchField } from "@/components/tmdb-search-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -622,15 +623,13 @@ export function SeriesForm() {
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="tmdbId" render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>TMDB ID (for VidSrc fallback)</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="e.g. 1396 (Breaking Bad)" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <div className="md:col-span-2">
+                  <TmdbSearchField
+                    type="tv"
+                    value={form.watch("tmdbId") ?? ""}
+                    onChange={(id) => form.setValue("tmdbId", id, { shouldDirty: true })}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>

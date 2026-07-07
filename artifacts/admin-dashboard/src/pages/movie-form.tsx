@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { TmdbSearchField } from "@/components/tmdb-search-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -547,17 +548,10 @@ export function MovieForm() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="tmdbId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>TMDB ID (for VidSrc fallback)</FormLabel>
-                        <FormControl><Input placeholder="e.g. 603" {...field} /></FormControl>
-                        <FormDescription>If no Telegram file is attached, the player will stream via VidSrc using this ID.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  <TmdbSearchField
+                    type="movie"
+                    value={form.watch("tmdbId") ?? ""}
+                    onChange={(id) => form.setValue("tmdbId", id, { shouldDirty: true })}
                   />
 
                   <FormField

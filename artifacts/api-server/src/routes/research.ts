@@ -236,4 +236,26 @@ router.post("/", async (req, res) => {
   }
 });
 
+// ── GET /admin/research/tmdb-search?q=...&type=movie|tv ──────────────────────
+router.get("/tmdb-search", async (req, res) => {
+  const q = (req.query.q as string || "").trim();
+  const type = (req.query.type as string) === "tv" ? "tv" : "movie";
+  if (!q) return res.json([]);
+  if (!process.env["TMDB_API_KEY"]) {
+    return res.status(503).json({ error: "TMDB_API_KEY not configured." });
+  }
+  try {
+    const data = await tmdbGet(`/search/${type}`, { query: q, language: "en-US", page: "1" });
+    const results = (data.results || []).slice(0, 8).map((r: any) => ({
+      id: String(r.id),
+      title: r.title || r.name,
+      year: (r.release_date || r.first_air_date || "").slice(0, 4),
+      posterUrl: r.poster_path ? `https://image.tmdb.org/t/p/w92${r.poster_path}` : null,
+    }));
+    return res.json(results);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
