@@ -688,14 +688,27 @@ export default function WatchEpisode() {
         <>
           {/* Player */}
           <div className="w-full bg-black">
-            <VideoPlayer
-              src={streamUrl}
-              poster={series.bannerUrl || series.posterUrl}
-              subtitleUrl={episode.subtitleUrl ?? undefined}
-              resumeAt={savedProgress}
-              progressKey={progressKey(id!, sIdx, eIdx)}
-              onError={setVideoError}
-            />
+            {(series as any).tmdbId && !episode.telegramFileId ? (
+              <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
+                <iframe
+                  src={`https://vidsrc.me/embed/tv/${(series as any).tmdbId}/${season!.seasonNumber}/${episode.episodeNumber}`}
+                  className="w-full h-full"
+                  allowFullScreen
+                  allow="autoplay; fullscreen"
+                  referrerPolicy="no-referrer"
+                  title={`${series.title} S${season!.seasonNumber}E${episode.episodeNumber}`}
+                />
+              </div>
+            ) : (
+              <VideoPlayer
+                src={streamUrl}
+                poster={series.bannerUrl || series.posterUrl}
+                subtitleUrl={episode.subtitleUrl ?? undefined}
+                resumeAt={savedProgress}
+                progressKey={progressKey(id!, sIdx, eIdx)}
+                onError={setVideoError}
+              />
+            )}
           </div>
 
           {/* Episode nav bar */}

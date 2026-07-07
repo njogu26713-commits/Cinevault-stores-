@@ -690,15 +690,28 @@ export default function WatchMovie() {
         <>
           {/* Player */}
           <div className="w-full bg-black">
-            <VideoPlayer
-              src={streamUrl}
-              poster={movie.bannerUrl || movie.posterUrl}
-              subtitleUrl={movie.subtitleUrl ?? undefined}
-              isFreePreview={isFreePreview}
-              onError={setVideoError}
-              onPreviewLimitReached={() => setShowPaywall(true)}
-              onBack={() => navigate(`/movie/${id}`)}
-            />
+            {(movie as any).tmdbId && !movie.telegramFileId && !(movie as any).telegramMessageId ? (
+              <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
+                <iframe
+                  src={`https://vidsrc.me/embed/movie/${(movie as any).tmdbId}`}
+                  className="w-full h-full"
+                  allowFullScreen
+                  allow="autoplay; fullscreen"
+                  referrerPolicy="no-referrer"
+                  title={movie.title}
+                />
+              </div>
+            ) : (
+              <VideoPlayer
+                src={streamUrl}
+                poster={movie.bannerUrl || movie.posterUrl}
+                subtitleUrl={movie.subtitleUrl ?? undefined}
+                isFreePreview={isFreePreview}
+                onError={setVideoError}
+                onPreviewLimitReached={() => setShowPaywall(true)}
+                onBack={() => navigate(`/movie/${id}`)}
+              />
+            )}
           </div>
 
           {/* ── Content ─────────────────────────────────────────────────── */}
