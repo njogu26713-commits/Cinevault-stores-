@@ -638,7 +638,7 @@ export default function WatchMovie() {
         /* VidSrc fallback — no Telegram file, but TMDB ID is set */
         <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
           <iframe
-            src={`https://vidsrc.to/embed/movie/${(movie as any).tmdbId}`}
+            src={`https://vidsrc.me/embed/movie/${(movie as any).tmdbId}`}
             className="w-full h-full"
             allowFullScreen
             allow="autoplay; fullscreen"

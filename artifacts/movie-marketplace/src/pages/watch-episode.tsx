@@ -657,7 +657,7 @@ export default function WatchEpisode() {
         /* VidSrc fallback — no Telegram file, but TMDB ID is set on the series */
         <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
           <iframe
-            src={`https://vidsrc.to/embed/tv/${(series as any).tmdbId}/${season!.seasonNumber}/${episode.episodeNumber}`}
+            src={`https://vidsrc.me/embed/tv/${(series as any).tmdbId}/${season!.seasonNumber}/${episode.episodeNumber}`}
             className="w-full h-full"
             allowFullScreen
             allow="autoplay; fullscreen"
