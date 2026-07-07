@@ -72,6 +72,7 @@ export const CreateMovieBody = zod.object({
   "comingSoon": zod.boolean().optional(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
+  "tmdbId": zod.string().nullish(),
   "telegramFileId": zod.string().nullish(),
   "subtitleUrl": zod.string().nullish()
 })
@@ -218,6 +219,7 @@ export const UpdateMovieBody = zod.object({
   "comingSoon": zod.boolean().optional(),
   "rating": zod.number().nullish(),
   "year": zod.number(),
+  "tmdbId": zod.string().nullish(),
   "telegramFileId": zod.string().nullish(),
   "subtitleUrl": zod.string().nullish()
 })
@@ -316,6 +318,7 @@ export const CreateSeriesBody = zod.object({
   "quality": zod.enum(['720p', '1080p', '4K']),
   "rating": zod.number().nullish(),
   "year": zod.number(),
+  "tmdbId": zod.string().nullish(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']).optional(),
   "featured": zod.boolean().optional(),
   "comingSoon": zod.boolean().optional(),
@@ -500,6 +503,7 @@ export const UpdateSeriesBody = zod.object({
   "quality": zod.enum(['720p', '1080p', '4K']),
   "rating": zod.number().nullish(),
   "year": zod.number(),
+  "tmdbId": zod.string().nullish(),
   "status": zod.enum(['Ongoing', 'Completed', 'Cancelled']).optional(),
   "featured": zod.boolean().optional(),
   "comingSoon": zod.boolean().optional(),

@@ -27,6 +27,7 @@ export interface ISeries extends Document {
   rating?: number | null;
   year: number;
   status: "Ongoing" | "Completed" | "Cancelled";
+  tmdbId?: string | null;
   featured: boolean;
   comingSoon: boolean;
   seasons: ISeason[];
@@ -74,6 +75,7 @@ const SeriesSchema = new Schema<ISeries>(
       enum: ["Ongoing", "Completed", "Cancelled"],
       default: "Ongoing",
     },
+    tmdbId: { type: String, default: null },
     featured: { type: Boolean, default: false },
     comingSoon: { type: Boolean, default: false },
     seasons: [SeasonSchema],

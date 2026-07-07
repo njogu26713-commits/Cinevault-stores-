@@ -14,6 +14,7 @@ export interface IMovie extends Document {
   featured: boolean;
   rating?: number | null;
   year: number;
+  tmdbId?: string | null;
   telegramFileId?: string | null;
   telegramMessageId?: number | null;
   subtitleUrl?: string | null;
@@ -40,6 +41,7 @@ const MovieSchema = new Schema<IMovie>(
     featured: { type: Boolean, default: false },
     rating: { type: Number, min: 0, max: 10, default: null },
     year: { type: Number, required: true },
+    tmdbId: { type: String, default: null },
     telegramFileId: { type: String, default: null },
     telegramMessageId: { type: Number, default: null },
     subtitleUrl: { type: String, default: null },

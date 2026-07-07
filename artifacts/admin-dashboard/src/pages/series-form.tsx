@@ -50,6 +50,7 @@ const seriesSchema = z.object({
   posterUrl: z.string().url("Must be a valid URL"),
   bannerUrl: z.string().url().optional().or(z.literal("")),
   youtubeTrailerId: z.string().optional(),
+  tmdbId: z.string().optional().or(z.literal("")),
   genre: z.string().min(1, "At least one genre is required"),
   quality: z.enum(["720p", "1080p", "4K"]),
   rating: z.coerce.number().min(0).max(10).optional().or(z.literal("")),
@@ -108,6 +109,7 @@ export function SeriesForm() {
       posterUrl: "",
       bannerUrl: "",
       youtubeTrailerId: "",
+      tmdbId: "",
       genre: "",
       quality: "1080p",
       rating: undefined,
@@ -160,6 +162,7 @@ export function SeriesForm() {
         posterUrl: d.posterUrl || "",
         bannerUrl: d.bannerUrl || "",
         youtubeTrailerId: d.youtubeTrailerId || "",
+        tmdbId: d.tmdbId ? String(d.tmdbId) : "",
         genre: (d.genres || []).join(", "),
         quality: "1080p",
         rating: d.tmdbRating || undefined,
@@ -185,6 +188,7 @@ export function SeriesForm() {
         posterUrl: existing.posterUrl ?? "",
         bannerUrl: existing.bannerUrl ?? "",
         youtubeTrailerId: existing.youtubeTrailerId ?? "",
+        tmdbId: (existing as any).tmdbId ?? "",
         genre: existing.genre?.join(", ") ?? "",
         quality: (existing.quality as "720p" | "1080p" | "4K") ?? "1080p",
         rating: existing.rating ?? undefined,
@@ -390,6 +394,7 @@ export function SeriesForm() {
       genre: values.genre.split(",").map((g) => g.trim()).filter(Boolean),
       bannerUrl: values.bannerUrl || null,
       youtubeTrailerId: values.youtubeTrailerId ? stripYoutubeUrl(values.youtubeTrailerId) : null,
+      tmdbId: (values as any).tmdbId || null,
       rating: values.rating ? Number(values.rating) : null,
       seasons: values.seasons.map((s) => ({
         seasonNumber: Number(s.seasonNumber),
@@ -613,6 +618,15 @@ export function SeriesForm() {
                         placeholder="dQw4w9WgXcQ or https://youtube.com/watch?v=..."
                         onChange={(e) => field.onChange(stripYoutubeUrl(e.target.value))}
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="tmdbId" render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>TMDB ID (for VidSrc fallback)</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g. 1396 (Breaking Bad)" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

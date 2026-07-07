@@ -30,6 +30,7 @@ const formSchema = z.object({
   posterUrl: z.string().url("Must be a valid URL"),
   bannerUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   youtubeTrailerId: z.string().optional().or(z.literal("")),
+  tmdbId: z.string().optional().or(z.literal("")),
   subtitleUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   featured: z.boolean().default(false),
   comingSoon: z.boolean().default(false),
@@ -68,6 +69,7 @@ export function MovieForm() {
       posterUrl: "",
       bannerUrl: "",
       youtubeTrailerId: "",
+      tmdbId: "",
       subtitleUrl: "",
       featured: false,
       comingSoon: false,
@@ -90,6 +92,7 @@ export function MovieForm() {
         posterUrl: movie.posterUrl,
         bannerUrl: movie.bannerUrl || "",
         youtubeTrailerId: movie.youtubeTrailerId || "",
+        tmdbId: (movie as any).tmdbId || "",
         subtitleUrl: (movie as any).subtitleUrl || "",
         featured: movie.featured,
         comingSoon: (movie as any).comingSoon || false,
@@ -162,6 +165,7 @@ export function MovieForm() {
       posterUrl: values.posterUrl,
       bannerUrl: values.bannerUrl || null,
       youtubeTrailerId: ytId || null,
+      tmdbId: values.tmdbId || null,
       subtitleUrl: values.subtitleUrl || null,
       featured: values.featured,
       comingSoon: values.comingSoon,
@@ -538,6 +542,19 @@ export function MovieForm() {
                         <FormLabel>YouTube Trailer (URL or ID)</FormLabel>
                         <FormControl><Input placeholder="e.g. dQw4w9WgXcQ" {...field} /></FormControl>
                         <FormDescription>Full URL will be stripped to ID on save</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="tmdbId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>TMDB ID (for VidSrc fallback)</FormLabel>
+                        <FormControl><Input placeholder="e.g. 603" {...field} /></FormControl>
+                        <FormDescription>If no Telegram file is attached, the player will stream via VidSrc using this ID.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

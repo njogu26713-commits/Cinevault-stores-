@@ -653,7 +653,19 @@ export default function WatchEpisode() {
       </nav>
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
-      {!confirmed ? (
+      {(series as any).tmdbId && !episode.telegramFileId ? (
+        /* VidSrc fallback — no Telegram file, but TMDB ID is set on the series */
+        <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
+          <iframe
+            src={`https://vidsrc.to/embed/tv/${(series as any).tmdbId}/${season!.seasonNumber}/${episode.episodeNumber}`}
+            className="w-full h-full"
+            allowFullScreen
+            allow="autoplay; fullscreen"
+            referrerPolicy="no-referrer"
+            title={`${series.title} S${season!.seasonNumber}E${episode.episodeNumber}`}
+          />
+        </div>
+      ) : !confirmed ? (
         <UsernameGate onConfirm={handleConfirm} />
       ) : videoError === "PURCHASE_REQUIRED" ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex items-center justify-center p-6">
