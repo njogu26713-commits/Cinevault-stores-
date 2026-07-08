@@ -70,6 +70,7 @@ TELEGRAM_CHANNEL_ID = "-1004396008121"
 PAYMENT_BYPASS = "true"
 VITE_BOT_USERNAME = "Firebix_bot"
 VITE_VIDSRC_API_URL = "https://cinevault-vidsrc.vercel.app"
+TELEGRAM_UPLOAD_WORKERS = "4"
 
 [[ports]]
 localPort = 5000
