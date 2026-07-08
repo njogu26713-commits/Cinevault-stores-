@@ -18,6 +18,39 @@ export interface ChannelFile {
 const channelFileBuffer: ChannelFile[] = [];
 const MAX_BUFFER = 200;
 
+export interface DetectedChannel {
+  id: string;
+  title: string;
+  type: string;
+  username?: string;
+}
+
+// Channels the bot has seen itself added to, or received a post from, while the
+// long-poll loop is running. The admin "Detect Channel" button reads from this
+// instead of calling Telegram's getUpdates itself — that call races the poller
+// for the same update queue (Telegram only delivers each update once), so a
+// second consumer almost always sees nothing even when everything is configured
+// correctly.
+const detectedChannels = new Map<string, DetectedChannel>();
+
+export function getDetectedChannels(): DetectedChannel[] {
+  return Array.from(detectedChannels.values());
+}
+
+function trackChannel(chat: { id: number | string; type: string; title?: string; username?: string }): void {
+  if (chat.type !== "channel" && chat.type !== "supergroup" && chat.type !== "group") return;
+  detectedChannels.set(String(chat.id), {
+    id: String(chat.id),
+    title: chat.title || chat.username || String(chat.id),
+    type: chat.type,
+    username: chat.username,
+  });
+}
+
+function untrackChannel(chatId: number | string): void {
+  detectedChannels.delete(String(chatId));
+}
+
 export function getChannelFileBuffer(): ChannelFile[] {
   return [...channelFileBuffer];
 }
@@ -138,8 +171,23 @@ export async function startBotPolling(): Promise<void> {
     );
   });
 
+  // ── Chat membership changes (bot added/promoted in a channel or group) ─────
+  bot!.on("my_chat_member", (update: any) => {
+    const chat = update?.chat;
+    const status = update?.new_chat_member?.status;
+    if (!chat) return;
+    if (status === "administrator" || status === "member") {
+      trackChannel(chat);
+      logger.info({ chatId: chat.id, title: chat.title, status }, "Telegram: bot added to chat — tracked for detection");
+    } else if (status === "left" || status === "kicked" || status === "restricted") {
+      untrackChannel(chat.id);
+      logger.info({ chatId: chat.id, title: chat.title, status }, "Telegram: bot lost access to chat — untracked");
+    }
+  });
+
   // ── Channel posts (bot is admin of the channel) ────────────────────────────
   bot!.on("channel_post", (msg) => {
+    trackChannel(msg.chat);
     const doc = msg.document;
     const vid = msg.video;
     const fileId = doc?.file_id || vid?.file_id || msg.audio?.file_id || msg.animation?.file_id;

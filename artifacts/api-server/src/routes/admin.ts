@@ -9,7 +9,7 @@ import { Series } from "../models/Series";
 import { Order } from "../models/Order";
 import { MovieNotification } from "../models/MovieNotification";
 import { SeriesNotification } from "../models/SeriesNotification";
-import { getTelegramBot, getChannelFileBuffer, removeFromChannelBuffer, deliverMovieFromChannel } from "../services/telegram";
+import { getTelegramBot, getChannelFileBuffer, removeFromChannelBuffer, deliverMovieFromChannel, getDetectedChannels } from "../services/telegram";
 import { logger } from "../lib/logger";
 import { getSetting, saveSettings } from "../lib/settings-store";
 
@@ -516,60 +516,21 @@ router.get("/telegram/detect-channel", async (_req, res) => {
   }
 
   try {
-    // Fetch recent updates — look for my_chat_member events (bot added as admin)
-    // and channel_post events (bot can see the channel)
-    const url = `https://api.telegram.org/bot${token}/getUpdates?limit=100&allowed_updates=["my_chat_member","channel_post","message"]`;
-    const response = await fetch(url);
-    const data = await response.json() as any;
+    // NOTE: we deliberately do NOT call Telegram's getUpdates here. The bot's own
+    // long-poll loop (startBotPolling) is already continuously draining that same
+    // update queue, and Telegram only ever delivers a given update to one
+    // consumer. A second getUpdates call from this route would almost always see
+    // nothing, even with correct credentials, because the poller already
+    // acknowledged everything. Instead we read from the in-memory list the
+    // poller itself builds as channel_post / my_chat_member events arrive.
+    const channels = getDetectedChannels();
 
-    if (!data.ok) {
-      return res.status(400).json({ error: `Telegram API error: ${data.description}` });
-    }
-
-    const channelMap = new Map<string, { id: string; title: string; type: string; username?: string }>();
-
-    for (const update of data.result ?? []) {
-      // my_chat_member: bot was added/promoted in a chat
-      const mcm = update.my_chat_member;
-      if (mcm) {
-        const chat = mcm.chat;
-        const newMember = mcm.new_chat_member;
-        if (
-          (chat.type === "channel" || chat.type === "supergroup" || chat.type === "group") &&
-          (newMember?.status === "administrator" || newMember?.status === "member")
-        ) {
-          channelMap.set(String(chat.id), {
-            id: String(chat.id),
-            title: chat.title || chat.username || String(chat.id),
-            type: chat.type,
-            username: chat.username,
-          });
-        }
-      }
-
-      // channel_post: bot is in a channel and received a message
-      const cp = update.channel_post ?? update.message;
-      if (cp) {
-        const chat = cp.chat;
-        if (chat.type === "channel" || chat.type === "supergroup" || chat.type === "group") {
-          channelMap.set(String(chat.id), {
-            id: String(chat.id),
-            title: chat.title || chat.username || String(chat.id),
-            type: chat.type,
-            username: chat.username,
-          });
-        }
-      }
-    }
-
-    // Also fetch bot info so we can display the bot name
+    // Fetch bot info so we can display the bot name
     const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
     const meData = await meRes.json() as any;
     const botName = meData.ok ? `@${meData.result.username}` : "your bot";
 
-    const channels = Array.from(channelMap.values());
-
-    return res.json({ channels, botName, updatesChecked: data.result?.length ?? 0 });
+    return res.json({ channels, botName });
   } catch (err) {
     logger.error({ err }, "Telegram detect-channel failed");
     return res.status(500).json({ error: "Failed to reach Telegram API", details: String(err) });
@@ -581,6 +542,15 @@ router.post("/telegram/save-channel", async (req, res) => {
   const { channelId } = req.body;
   if (!channelId) {
     return res.status(400).json({ error: "channelId is required" });
+  }
+
+  // Only allow saving a channel the bot has actually been detected in — prevents
+  // saving an arbitrary/unreachable ID that will silently fail every send later.
+  const known = getDetectedChannels().some((c) => c.id === String(channelId));
+  if (!known) {
+    return res.status(400).json({
+      error: "This channel hasn't been detected yet. Add the bot to the channel (or post in it) and try Detect Channel again before saving.",
+    });
   }
 
   saveSettings({ telegramChannelId: String(channelId) });
