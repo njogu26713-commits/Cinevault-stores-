@@ -346,6 +346,13 @@ interface VideoMeta {
   height: number;
 }
 
+// Telegram uses the DocumentAttributeVideo w/h fields to size the chat
+// preview box — it does not re-render the video itself. We report a 16:9
+// box for every upload so previews are consistent, regardless of the
+// source file's actual aspect ratio. The video pixels are never touched.
+const TELEGRAM_PREVIEW_WIDTH = 1280;
+const TELEGRAM_PREVIEW_HEIGHT = 720;
+
 async function getVideoMeta(filePath: string): Promise<VideoMeta> {
   const { stdout } = await execFileAsync("ffprobe", [
     "-v", "quiet",
@@ -357,9 +364,7 @@ async function getVideoMeta(filePath: string): Promise<VideoMeta> {
   const data = JSON.parse(stdout);
   const stream = data.streams?.[0] ?? {};
   const duration = Math.round(parseFloat(stream.duration ?? "0")) || 0;
-  const width = parseInt(stream.width ?? "0", 10) || 0;
-  const height = parseInt(stream.height ?? "0", 10) || 0;
-  return { duration, width, height };
+  return { duration, width: TELEGRAM_PREVIEW_WIDTH, height: TELEGRAM_PREVIEW_HEIGHT };
 }
 
 async function generateThumbnail(filePath: string, durationSec: number): Promise<string | null> {
