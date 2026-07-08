@@ -86,15 +86,29 @@ export async function startBotPolling(): Promise<void> {
     return;
   }
 
+  // Only force-clear competing sessions in production.
+  // In development the deployed production app is likely already polling — calling
+  // deleteWebhook here would kill it and flood its logs with 409 errors.
+  const isProduction = process.env["NODE_ENV"] === "production";
+
+  // A dev instance can never win a polling race against a production deployment
+  // using the same bot token — Telegram allows only one long-poll consumer per
+  // token, and dev deliberately avoids force-clearing prod's session (see above).
+  // Retrying forever just floods the logs with 409s. Skip polling entirely in
+  // dev unless explicitly opted back in (e.g. no production deployment exists yet).
+  if (!isProduction && process.env["FORCE_DEV_BOT_POLLING"] !== "true") {
+    logger.info(
+      "Telegram: dev mode — skipping bot polling (a production deployment likely already owns the session). Set FORCE_DEV_BOT_POLLING=true to override."
+    );
+    bot = new TelegramBot(token, { polling: false });
+    return;
+  }
+
   if (bot) {
     try { await bot.stopPolling(); } catch {}
     bot = null;
   }
 
-  // Only force-clear competing sessions in production.
-  // In development the deployed production app is likely already polling — calling
-  // deleteWebhook here would kill it and flood its logs with 409 errors.
-  const isProduction = process.env["NODE_ENV"] === "production";
   if (isProduction) {
     try {
       const res = await fetch(
@@ -105,8 +119,6 @@ export async function startBotPolling(): Promise<void> {
     } catch (err) {
       logger.warn({ err }, "Telegram: failed to clear webhook before polling (continuing)");
     }
-  } else {
-    logger.info("Telegram: dev mode — skipping deleteWebhook to preserve deployed app polling");
   }
 
   // Retry with exponential backoff to handle 409 Conflict from Telegram
