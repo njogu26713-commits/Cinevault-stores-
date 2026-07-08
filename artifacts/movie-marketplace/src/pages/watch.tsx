@@ -11,8 +11,6 @@ import {
   ChevronLeft, ChevronRight, X, RotateCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Hls from "hls.js";
-import { fetchMovieStream } from "../lib/vidsrc";
 
 // ── LocalStorage prefs ─────────────────────────────────────────────────────
 function loadPref<T>(key: string, fallback: T): T {
@@ -51,15 +49,13 @@ interface PlayerProps {
   poster?: string;
   subtitleUrl?: string;
   isFreePreview: boolean;
-  isExternal?: boolean;
   onError: (msg: string) => void;
   onPreviewLimitReached: () => void;
   onBack: () => void;
 }
 
-function VideoPlayer({ src, poster, subtitleUrl, isFreePreview, isExternal, onError, onPreviewLimitReached, onBack }: PlayerProps) {
+function VideoPlayer({ src, poster, subtitleUrl, isFreePreview, onError, onPreviewLimitReached, onBack }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(() => loadPref("cv_volume", 80));
@@ -183,27 +179,6 @@ function VideoPlayer({ src, poster, subtitleUrl, isFreePreview, isExternal, onEr
     });
   }, [subtitlesOn]);
 
-  // ── HLS.js ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !src.includes(".m3u8")) return;
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-    if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: false });
-      hlsRef.current = hls;
-      hls.loadSource(src);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
-      hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) onError("Stream unavailable. The external source could not be loaded.");
-      });
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
-      video.load();
-    }
-    return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
-  }, [src]);
-
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -307,7 +282,7 @@ function VideoPlayer({ src, poster, subtitleUrl, isFreePreview, isExternal, onEr
     >
       <video
         ref={videoRef}
-        src={src.includes(".m3u8") && Hls.isSupported() ? undefined : src}
+        src={src}
         className="absolute inset-0 w-full h-full"
         style={{ objectFit: videoFit === "contain" ? "contain" : videoFit === "cover" ? "cover" : "fill" }}
         crossOrigin="anonymous"
@@ -316,10 +291,6 @@ function VideoPlayer({ src, poster, subtitleUrl, isFreePreview, isExternal, onEr
         onError={async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (isExternal) {
-            onError("Stream unavailable. Could not load the external video source.");
-            return;
-          }
           // Probe the stream URL to get the real error message from the server
           // (the browser only gives us a numeric error code, not the body)
           try {
@@ -585,9 +556,6 @@ export default function WatchMovie() {
   const [inWatchlist, setInWatchlist] = useState(false);
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [consumerUrl, setConsumerUrl] = useState<string | null>(null);
-  const [consumerLoading, setConsumerLoading] = useState(false);
-  const [consumerError, setConsumerError] = useState<string | null>(null);
 
   const { data: movie, isLoading } = useGetMovie(id!, {
     query: { enabled: !!id, queryKey: getGetMovieQueryKey(id!) },
@@ -613,23 +581,6 @@ export default function WatchMovie() {
   }, [id, confirmed, username]);
 
   const handleConfirm = (u: string) => { save(u); setConfirmed(true); };
-
-  const hasExternal = !!(movie as any)?.tmdbId && !movie?.telegramFileId && !(movie as any)?.telegramMessageId;
-
-  useEffect(() => {
-    if (!id || !hasExternal) return;
-    const tmdbId = (movie as any)?.tmdbId;
-    if (!tmdbId) return;
-    setConsumerLoading(true);
-    setConsumerUrl(null);
-    setConsumerError(null);
-    let cancelled = false;
-    fetchMovieStream(tmdbId)
-      .then((stream) => { if (!cancelled) setConsumerUrl(stream.url); })
-      .catch((err: Error) => { if (!cancelled) setConsumerError(err.message || "Stream not available"); })
-      .finally(() => { if (!cancelled) setConsumerLoading(false); });
-    return () => { cancelled = true; };
-  }, [id, hasExternal]);
 
   const needsMtproto =
     videoError?.includes("MTProto") || videoError?.includes("large") ||
@@ -683,9 +634,9 @@ export default function WatchMovie() {
       </nav>
 
       {/* ── Player area ──────────────────────────────────────────────────── */}
-      {!hasExternal && !confirmed ? (
+      {!confirmed ? (
         <UsernameGate onConfirm={handleConfirm} />
-      ) : videoError && !hasExternal ? (
+      ) : videoError ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -718,7 +669,7 @@ export default function WatchMovie() {
             </div>
           </div>
         </motion.div>
-      ) : showPaywall && !hasExternal ? (
+      ) : showPaywall ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -739,54 +690,15 @@ export default function WatchMovie() {
         <>
           {/* Player */}
           <div className="w-full bg-black">
-            {hasExternal ? (
-              consumerLoading ? (
-                <div className="flex items-center justify-center gap-3" style={{ aspectRatio: "16/9" }}>
-                  <Loader2 className="animate-spin text-primary" size={36} />
-                  <span className="text-white/50 text-sm">Finding stream…</span>
-                </div>
-              ) : consumerError ? (
-                <div className="flex items-center justify-center flex-col gap-4" style={{ aspectRatio: "16/9" }}>
-                  <AlertCircle size={28} className="text-destructive" />
-                  <p className="text-white/50 text-sm text-center px-4">{consumerError}</p>
-                  <button
-                    onClick={() => {
-                      const tmdbId = (movie as any)?.tmdbId;
-                      if (!tmdbId) return;
-                      setConsumerError(null); setConsumerLoading(true); setConsumerUrl(null);
-                      fetchMovieStream(tmdbId)
-                        .then((s) => setConsumerUrl(s.url))
-                        .catch((e: Error) => setConsumerError(e.message || "Stream not available"))
-                        .finally(() => setConsumerLoading(false));
-                    }}
-                    className="text-white/40 hover:text-white/70 text-sm underline underline-offset-2 transition-colors"
-                  >
-                    Try again
-                  </button>
-                </div>
-              ) : consumerUrl ? (
-                <VideoPlayer
-                  src={consumerUrl}
-                  poster={movie.bannerUrl || movie.posterUrl}
-                  subtitleUrl={movie.subtitleUrl ?? undefined}
-                  isExternal
-                  isFreePreview={false}
-                  onError={(msg) => setConsumerError(msg)}
-                  onPreviewLimitReached={() => {}}
-                  onBack={() => navigate(`/movie/${id}`)}
-                />
-              ) : null
-            ) : (
-              <VideoPlayer
-                src={streamUrl}
-                poster={movie.bannerUrl || movie.posterUrl}
-                subtitleUrl={movie.subtitleUrl ?? undefined}
-                isFreePreview={isFreePreview}
-                onError={setVideoError}
-                onPreviewLimitReached={() => setShowPaywall(true)}
-                onBack={() => navigate(`/movie/${id}`)}
-              />
-            )}
+            <VideoPlayer
+              src={streamUrl}
+              poster={movie.bannerUrl || movie.posterUrl}
+              subtitleUrl={movie.subtitleUrl ?? undefined}
+              isFreePreview={isFreePreview}
+              onError={setVideoError}
+              onPreviewLimitReached={() => setShowPaywall(true)}
+              onBack={() => navigate(`/movie/${id}`)}
+            />
           </div>
 
           {/* ── Content ─────────────────────────────────────────────────── */}
