@@ -389,6 +389,19 @@ async function generateThumbnail(filePath: string, durationSec: number): Promise
 
 // ── File Upload ───────────────────────────────────────────────────────────────
 
+// Number of file parts uploaded concurrently per file. Historically this was
+// hardcoded to 1 because parallel workers caused FILE_PARTS_INVALID errors —
+// but that was chunk desync from an older library version / overlapping
+// uploads sharing one connection, not a fundamental limit. Tunable via env
+// var so it can be raised (try 4-8) to speed up uploads and rolled back
+// instantly (set back to 1) if FILE_PARTS_INVALID reappears, without a
+// redeploy. Default stays at 1 (unchanged, safest) unless explicitly set.
+function getUploadWorkers(): number {
+  const raw = process.env["TELEGRAM_UPLOAD_WORKERS"];
+  const n = raw ? parseInt(raw, 10) : 1;
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
 async function doSendFile(
   entity: any,
   filePath: string,
@@ -432,26 +445,23 @@ async function doSendFile(
       new Api.DocumentAttributeFilename({ fileName: path.basename(filePath) }),
     ];
 
-    // workers: 1 — do NOT increase; parallel workers cause FILE_PARTS_INVALID
-    // (upload.SaveBigFilePart) errors from Telegram MTProto on large files.
     return await (_client as any).sendFile(entity, {
       file: filePath,
       caption,
       forceDocument: false,
       thumb: thumbPath ?? undefined,
       attributes,
-      workers: 1,
+      workers: getUploadWorkers(),
       progressCallback,
     });
   }
 
   // Document fallback
-  // workers: 1 — do NOT increase; parallel workers cause FILE_PARTS_INVALID errors.
   return await (_client as any).sendFile(entity, {
     file: filePath,
     caption,
     forceDocument: true,
-    workers: 1,
+    workers: getUploadWorkers(),
     progressCallback,
   });
 }
